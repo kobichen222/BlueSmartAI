@@ -1,0 +1,2 @@
+# BlueSmartAI
+Repository name: BlueSmartAI
