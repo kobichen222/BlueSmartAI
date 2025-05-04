@@ -2,7 +2,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 
 app = Flask(__name__)
-CORS(app, resources={r"/api/*": {"origins": "https://bluegun.co.il"}})
+CORS(app)  # מאפשר CORS מכל מקור (לצורך בדיקה)
 
 @app.route('/api/analyze', methods=['POST'])
 def analyze():
@@ -17,3 +17,4 @@ def analyze():
         "model": "43"
     }
     return jsonify(result), 200
+
