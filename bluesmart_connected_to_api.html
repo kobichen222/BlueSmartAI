@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <title>BlueSmart AI - זיהוי נשק מתמונה</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f0f4f8;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+    }
+    .box {
+      background: white;
+      padding: 30px;
+      border-radius: 16px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+      max-width: 450px;
+      text-align: center;
+    }
+    input {
+      margin-top: 10px;
+    }
+    #result {
+      margin-top: 20px;
+      background: #e3f2fd;
+      padding: 15px;
+      border-radius: 10px;
+      direction: rtl;
+      text-align: right;
+    }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <h2>🔍 ניתוח תמונה - BlueSmart AI</h2>
+    <input type="file" id="imageInput" accept="image/*"><br><br>
+    <button onclick="analyzeImage()">שלח לניתוח</button>
+    <div id="result"></div>
+  </div>
+
+  <script>
+    async function analyzeImage() {
+      const input = document.getElementById('imageInput');
+      const resultDiv = document.getElementById('result');
+
+      if (!input.files.length) {
+        alert('יש לבחור תמונה תחילה.');
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('image', input.files[0]);
+
+      resultDiv.innerHTML = '⏳ נשלח לשרת...';
+
+      try {
+        const response = await fetch('https://bluesmart-api.onrender.com/api/analyze', {
+          method: 'POST',
+          body: formData
+        });
+
+        if (!response.ok) throw new Error('שגיאה בשרת');
+
+        const data = await response.json();
+
+        resultDiv.innerHTML = `
+          ✅ <b>הניתוח הצליח!</b><br>
+          🔫 סוג: ${data.weapon_type}<br>
+          🏭 יצרן: ${data.manufacturer}<br>
+          📦 דגם: ${data.model}<br>
+          ⚙️ מצב מכני: ${data.condition || "לא זמין"}<br>
+          📆 שנת ייצור משוערת: ${data.year || "לא ידוע"}
+        `;
+      } catch (err) {
+        resultDiv.innerHTML = '❌ שגיאה: ' + err.message;
+      }
+    }
+  </script>
+</body>
+</html>
