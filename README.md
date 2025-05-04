@@ -1,3 +1,3 @@
 # BlueSmartAI
 
-This is a demo version of the BlueSmart AI system.
+Demo Flask app with working root and API endpoint.
