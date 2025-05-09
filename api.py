@@ -40,7 +40,7 @@ def analyze():
         cx, cy = w // 2, h // 2
         radius = min(w, h) // 3
 
-        # יצירת מסכה עגולה של המטרה בלבד
+        # מסכת עיגול מטרה
         mask = np.zeros((h, w), dtype=np.uint8)
         cv2.circle(mask, (cx, cy), radius, 255, -1)
 
@@ -66,7 +66,7 @@ def analyze():
                     hit_coords.append({ "x": int(x), "y": int(y) })
                     cv2.circle(output, (x, y), r, (0, 255, 0), 2)
 
-        # ניתוח AI בסיסי
+        # ניתוח AI
         if hit_count >= 15:
             summary = "רמת ירי יוצאת דופן – צלף מקצועי עם ריכוז גבוה ואפס סטייה."
             score = 98
@@ -83,7 +83,7 @@ def analyze():
             summary = "לא זוהו פגיעות חוקיות – יש לבדוק תנוחת ירי ולחזור על האימון."
             score = 30
 
-        # שמירת תוצאה
+        # שמירה
         result_filename = f'result_{datetime.now().strftime("%Y%m%d_%H%M%S")}.jpg'
         result_path = os.path.join(UPLOAD_FOLDER, result_filename)
         cv2.imwrite(result_path, cv2.cvtColor(output, cv2.COLOR_RGB2BGR))
