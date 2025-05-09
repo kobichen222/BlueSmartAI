@@ -119,3 +119,100 @@ def analyze():
 @app.route('/static/<path:filename>')
 def serve_static(filename):
     return send_from_directory(UPLOAD_FOLDER, filename)
+
+@app.route('/api/analyze', methods=['POST'])
+def analyze():
+    if 'image' not in request.files:
+        return jsonify({ "status": "error", "message": "❌ קובץ תמונה לא סופק" }), 400
+
+    try:
+        shooter = request.form.get('shooter', 'לא ידוע')
+        weapon = request.form.get('weapon', 'לא צויין')
+        distance = request.form.get('distance', 'לא ידוע')
+
+        file = request.files['image']
+        image = Image.open(file.stream).convert('RGB')
+        image_np = np.array(image)
+
+        h, w = image_np.shape[:2]
+        cx, cy = w // 2, h // 2
+        radius = min(w, h) // 3
+
+        # מסכת עיגול מטרה
+        mask = np.zeros((h, w), dtype=np.uint8)
+        cv2.circle(mask, (cx, cy), radius, 255, -1)
+
+        # עיבוד תמונה
+        gray = cv2.cvtColor(image_np, cv2.COLOR_RGB2GRAY)
+        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+
+        # זיהוי חורי ירי
+        circles = cv2.HoughCircles(
+            blurred, cv2.HOUGH_GRADIENT, dp=1.2, minDist=20,
+            param1=50, param2=25, minRadius=4, maxRadius=12
+        )
+
+        output = image_np.copy()
+        total_hits = 0
+        legal_hits = 0
+        legal_coords = []
+        all_coords = []
+
+        if circles is not None:
+            for x, y, r in np.uint16(np.around(circles[0])):
+                total_hits += 1
+                all_coords.append({ "x": int(x), "y": int(y) })
+                dist = np.sqrt((x - cx)**2 + (y - cy)**2)
+
+                if dist < radius and mask[y, x] == 255:
+                    legal_hits += 1
+                    legal_coords.append({ "x": int(x), "y": int(y) })
+                    cv2.circle(output, (x, y), r, (0, 255, 0), 2)  # ירוק = חוקי
+                else:
+                    cv2.circle(output, (x, y), r, (0, 0, 255), 2)  # אדום = לא חוקי
+
+        # ניתוח לפי פגיעות חוקיות בלבד
+        if legal_hits >= 15:
+            summary = "רמת ירי יוצאת דופן – צלף מקצועי עם ריכוז גבוה ואפס סטייה."
+            score = 98
+        elif legal_hits >= 10:
+            summary = "רמה גבוהה מאוד – ריכוז טוב, סטייה מינימלית, שליטה טובה."
+            score = 92
+        elif legal_hits >= 5:
+            summary = "ירי בינוני – פגיעות סבירות אך דרוש תרגול לשיפור ריכוז."
+            score = 75
+        elif legal_hits > 0:
+            summary = "פגיעות בודדות – מומלץ אימון בסיסי נוסף על מיקוד ואחיזה."
+            score = 55
+        else:
+            summary = "לא זוהו פגיעות חוקיות – יש לבדוק תנוחת ירי ולחזור על האימון."
+            score = 30
+
+        result_filename = f'result_{datetime.now().strftime("%Y%m%d_%H%M%S")}.jpg'
+        result_path = os.path.join(UPLOAD_FOLDER, result_filename)
+        cv2.imwrite(result_path, cv2.cvtColor(output, cv2.COLOR_RGB2BGR))
+
+        now = datetime.now().strftime("%Y-%m-%d %H:%M")
+        with open(HISTORY_FILE, 'a', encoding='utf-8') as f:
+            f.write(f"{shooter},{weapon},{distance},{legal_hits},{now}\n")
+
+        result = {
+            "status": "success",
+            "message": f"✅ זוהו {legal_hits} פגיעות חוקיות מתוך {total_hits} פגיעות כלליות",
+            "hits_legal": legal_hits,
+            "hits_total": total_hits,
+            "hit_coords_legal": legal_coords,
+            "hit_coords_all": all_coords,
+            "image_url": urljoin(request.url_root, 'static/' + result_filename),
+            "shooter": shooter,
+            "weapon": weapon,
+            "distance": distance,
+            "timestamp": now,
+            "ai_score": score,
+            "analysis_summary": summary
+        }
+
+        return jsonify(convert_floats(result))
+
+    except Exception as e:
+        return jsonify({ "status": "error", "message": f"שגיאת ניתוח: {str(e)}" }), 500
