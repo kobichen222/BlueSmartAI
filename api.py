@@ -14,6 +14,16 @@ UPLOAD_FOLDER = 'static'
 HISTORY_FILE = 'history.csv'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
+# פונקציה להמרת טיפוסים שלא נתמכים ישירות ב־JSON
+def convert_floats(obj):
+    if isinstance(obj, dict):
+        return {k: convert_floats(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [convert_floats(i) for i in obj]
+    elif isinstance(obj, (np.integer, np.floating)):
+        return obj.item()
+    return obj
+
 @app.route('/')
 def home():
     return '🔵 ShotMark AI פעיל - שלח תמונה לניתוח דרך /api/analyze'
@@ -40,15 +50,12 @@ def analyze():
         cx, cy = w // 2, h // 2
         radius = min(w, h) // 3
 
-        # מסכת עיגול מטרה
         mask = np.zeros((h, w), dtype=np.uint8)
         cv2.circle(mask, (cx, cy), radius, 255, -1)
 
-        # עיבוד תמונה
         gray = cv2.cvtColor(image_np, cv2.COLOR_RGB2GRAY)
         blurred = cv2.GaussianBlur(gray, (5, 5), 0)
 
-        # זיהוי חורי ירי
         circles = cv2.HoughCircles(
             blurred, cv2.HOUGH_GRADIENT, dp=1.2, minDist=20,
             param1=50, param2=25, minRadius=4, maxRadius=12
@@ -60,13 +67,12 @@ def analyze():
 
         if circles is not None:
             for x, y, r in np.uint16(np.around(circles[0])):
-                distance = np.sqrt((x - cx)**2 + (y - cy)**2)
-                if distance < radius and mask[y, x] == 255:
+                dist = np.sqrt((x - cx)**2 + (y - cy)**2)
+                if dist < radius and mask[y, x] == 255:
                     hit_count += 1
                     hit_coords.append({ "x": int(x), "y": int(y) })
                     cv2.circle(output, (x, y), r, (0, 255, 0), 2)
 
-        # ניתוח AI
         if hit_count >= 15:
             summary = "רמת ירי יוצאת דופן – צלף מקצועי עם ריכוז גבוה ואפס סטייה."
             score = 98
@@ -83,7 +89,6 @@ def analyze():
             summary = "לא זוהו פגיעות חוקיות – יש לבדוק תנוחת ירי ולחזור על האימון."
             score = 30
 
-        # שמירה
         result_filename = f'result_{datetime.now().strftime("%Y%m%d_%H%M%S")}.jpg'
         result_path = os.path.join(UPLOAD_FOLDER, result_filename)
         cv2.imwrite(result_path, cv2.cvtColor(output, cv2.COLOR_RGB2BGR))
@@ -92,7 +97,7 @@ def analyze():
         with open(HISTORY_FILE, 'a', encoding='utf-8') as f:
             f.write(f"{shooter},{weapon},{distance},{hit_count},{now}\n")
 
-        return jsonify({
+        result = {
             "status": "success",
             "message": f"✅ זוהו {hit_count} פגיעות חוקיות במטרה",
             "hits": hit_count,
@@ -104,7 +109,9 @@ def analyze():
             "timestamp": now,
             "ai_score": score,
             "analysis_summary": summary
-        })
+        }
+
+        return jsonify(convert_floats(result))
 
     except Exception as e:
         return jsonify({ "status": "error", "message": f"שגיאת ניתוח: {str(e)}" }), 500
