@@ -5,9 +5,6 @@ import numpy as np
 import cv2
 import os
 from urllib.parse import urljoin
-from reportlab.pdfgen import canvas
-from reportlab.lib.pagesizes import A4
-from datetime import datetime
 
 app = Flask(__name__)
 CORS(app)
@@ -17,7 +14,7 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 @app.route('/')
 def home():
-    return '🔵 שרת ShotMark AI פעיל - עבור לממשק ב /app'
+    return '🔵 ShotMark AI - ניתוח פגיעות'
 
 @app.route('/app')
 def interface():
@@ -26,70 +23,44 @@ def interface():
 @app.route('/api/analyze', methods=['POST'])
 def analyze():
     if 'image' not in request.files:
-        return jsonify({"status": "error", "message": "❌ קובץ תמונה לא סופק"}), 400
+        return jsonify({"status": "error", "message": "❌ לא נשלחה תמונה"}), 400
 
     try:
         file = request.files['image']
         image = Image.open(file.stream).convert('RGB')
         image_np = np.array(image)
 
-        gray = cv2.cvtColor(image_np, cv2.COLOR_RGB2GRAY)
+        h, w = image_np.shape[:2]
+        roi = image_np[h//5:h*4//5, w//6:w*5//6]  # רק אזור המטרה
+        gray = cv2.cvtColor(roi, cv2.COLOR_RGB2GRAY)
         blurred = cv2.GaussianBlur(gray, (5, 5), 0)
         edges = cv2.Canny(blurred, 50, 150)
 
-        contours, _ = cv2.findContours(edges.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        output = image_np.copy()
+        contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         hit_count = 0
-
         for c in contours:
             area = cv2.contourArea(c)
-            if 50 < area < 300:
-                x, y, w, h = cv2.boundingRect(c)
-                cv2.circle(output, (x + w//2, y + h//2), 10, (255, 0, 0), 2)
+            if 30 < area < 300:
+                x, y, w2, h2 = cv2.boundingRect(c)
+                cv2.circle(roi, (x + w2//2, y + h2//2), 10, (255, 0, 0), 2)
                 hit_count += 1
 
+        image_np[h//5:h*4//5, w//6:w*5//6] = roi
         result_path = os.path.join(UPLOAD_FOLDER, 'result.jpg')
-        cv2.imwrite(result_path, cv2.cvtColor(output, cv2.COLOR_RGB2BGR))
-
-        # יצירת דו"ח PDF אוטומטי
-        report_path = os.path.join(UPLOAD_FOLDER, 'report.pdf')
-        c = canvas.Canvas(report_path, pagesize=A4)
-        width, height = A4
-        c.setFont("Helvetica-Bold", 16)
-        c.drawString(100, height - 60, "דו\"ח פגיעות – ShotMark AI")
-        c.setFont("Helvetica", 12)
-        c.drawString(100, height - 100, f"שם המטרה: Uploaded Target")
-        c.drawString(100, height - 120, "יורה: לא ידוע")
-        c.drawString(100, height - 140, "סוג ירי: לא נבחר")
-        c.drawString(100, height - 160, f"תאריך הפקה: {datetime.now().strftime('%d.%m.%Y')}")
-        c.drawString(100, height - 180, "מערכת ניתוח: ShotMark AI")
-        c.setFont("Helvetica-Bold", 13)
-        c.drawString(100, height - 220, "1. ניתוח פגיעות כללי:")
-        c.setFont("Helvetica", 12)
-        c.drawString(120, height - 240, f"סה\"כ פגיעות מזוהות: {hit_count}")
-        c.drawString(120, height - 260, "ריכוז פגיעות עיקרי: בין טבעת 6 ל־9")
-        c.drawString(120, height - 280, "אזור פגיעה: ימין-תחתון")
-        c.drawString(120, height - 300, "סטייה ממוצעת: בינונית")
-        c.drawString(120, height - 320, "פגיעות במעגל 9–10: ~15%")
-        c.drawString(120, height - 340, "פגיעות מחוץ למעגל השחור: ~30%")
-        c.drawImage(result_path, 100, 100, width=300, height=300)
-        c.setFont("Helvetica", 11)
-        c.drawString(100, 80, "דו\"ח זה הופק אוטומטית על ידי מערכת ShotMark AI")
-        c.save()
+        cv2.imwrite(result_path, cv2.cvtColor(image_np, cv2.COLOR_RGB2BGR))
 
         return jsonify({
             "status": "success",
-            "message": f"✅ נותחו {hit_count} פגיעות",
+            "message": f"✅ זוהו {hit_count} פגיעות במטרה",
             "hits": hit_count,
-            "image_url": urljoin(request.url_root, 'static/result.jpg'),
-            "report_url": urljoin(request.url_root, 'static/report.pdf')
+            "image_url": urljoin(request.url_root, 'static/result.jpg')
         })
 
     except Exception as e:
-        return jsonify({"status": "error", "message": f"שגיאה: {str(e)}"}), 500
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/static/<path:filename>')
-def serve_static(filename):
+def static_files(filename):
     return send_from_directory(UPLOAD_FOLDER, filename)
 
 if __name__ == '__main__':
