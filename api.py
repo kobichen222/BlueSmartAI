@@ -37,31 +37,31 @@ def analyze():
         image_np = np.array(image)
 
         h, w = image_np.shape[:2]
-
-        # מסכה עגולה – רק על אזור המטרה
         cx, cy = w // 2, h // 2
         radius = min(w, h) // 3
         mask = np.zeros((h, w), dtype=np.uint8)
         cv2.circle(mask, (cx, cy), radius, 255, -1)
 
-        target_area = cv2.bitwise_and(image_np, image_np, mask=mask)
-        gray = cv2.cvtColor(target_area, cv2.COLOR_RGB2GRAY)
-        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-        edges = cv2.Canny(blurred, 30, 150)
+        gray = cv2.cvtColor(image_np, cv2.COLOR_RGB2GRAY)
+        gray_blurred = cv2.medianBlur(gray, 5)
 
-        contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        circles = cv2.HoughCircles(
+            gray_blurred, cv2.HOUGH_GRADIENT, dp=1.2, minDist=20,
+            param1=50, param2=30, minRadius=4, maxRadius=12
+        )
+
         output = image_np.copy()
         hit_count = 0
+        hit_coords = []
 
-        for c in contours:
-            area = cv2.contourArea(c)
-            if 50 < area < 300:
-                x, y, w2, h2 = cv2.boundingRect(c)
-                cx2, cy2 = x + w2 // 2, y + h2 // 2
-                distance_from_center = np.sqrt((cx - cx2) ** 2 + (cy - cy2) ** 2)
-                if distance_from_center < radius:
-                    cv2.circle(output, (cx2, cy2), 10, (255, 0, 0), 2)
+        if circles is not None:
+            circles = np.uint16(np.around(circles[0]))
+            for x, y, r in circles:
+                distance_from_center = np.sqrt((cx - x)**2 + (cy - y)**2)
+                if distance_from_center < radius and mask[y, x] == 255:
+                    cv2.circle(output, (x, y), r, (255, 0, 0), 2)
                     hit_count += 1
+                    hit_coords.append({'x': int(x), 'y': int(y)})
 
         result_filename = f'result_{datetime.now().strftime("%Y%m%d_%H%M%S")}.jpg'
         result_path = os.path.join(UPLOAD_FOLDER, result_filename)
@@ -73,8 +73,9 @@ def analyze():
 
         return jsonify({
             "status": "success",
-            "message": f"✅ זוהו {hit_count} פגיעות בתוך עיגול המטרה",
+            "message": f"✅ זוהו {hit_count} חורי ירי עגולים בתוך המטרה",
             "hits": hit_count,
+            "hit_coords": hit_coords,
             "image_url": urljoin(request.url_root, 'static/' + result_filename),
             "shooter": shooter,
             "weapon": weapon,
@@ -88,26 +89,3 @@ def analyze():
 @app.route('/static/<path:filename>')
 def serve_static(filename):
     return send_from_directory(UPLOAD_FOLDER, filename)
-
-@app.route('/api/history')
-def get_history():
-    if not os.path.exists(HISTORY_FILE):
-        return jsonify([])
-    with open(HISTORY_FILE, 'r', encoding='utf-8') as f:
-        lines = f.readlines()
-    history = []
-    for line in lines:
-        parts = line.strip().split(',')
-        if len(parts) == 5:
-            history.append({
-                "shooter": parts[0],
-                "weapon": parts[1],
-                "distance": parts[2],
-                "hits": parts[3],
-                "timestamp": parts[4]
-            })
-    return jsonify(history)
-
-if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port)
