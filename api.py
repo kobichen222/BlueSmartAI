@@ -1,3 +1,9 @@
+from flask import render_template
+
+@app.route('/app')
+def interface():
+    return render_template('index.html')
+
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from PIL import Image
