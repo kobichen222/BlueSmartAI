@@ -4,10 +4,11 @@
   <meta charset="UTF-8">
   <title>ShotMark AI - ניתוח ירי</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     body {
       font-family: Arial, sans-serif;
-      background: #eef3f9;
+      background: #f1f5fa;
       color: #222;
       text-align: center;
       padding: 20px;
@@ -33,7 +34,6 @@
     button:hover {
       background-color: #003e8a;
     }
-    #result { margin-top: 20px; font-size: 18px; }
     img {
       margin-top: 15px;
       max-width: 100%;
@@ -55,10 +55,10 @@
       background-color: #f2f2f2;
       font-weight: bold;
     }
-    .actions {
-      margin-top: 20px;
+    .chart-container {
+      margin: 20px auto;
+      max-width: 400px;
     }
-    .actions button { margin: 5px; width: 48%; }
   </style>
 </head>
 <body>
@@ -75,9 +75,8 @@
   <div id="result"></div>
   <img id="resultImage" hidden>
 
-  <div class="actions" id="actions" style="display:none;">
-    <button onclick="window.print()">הדפס</button>
-    <button onclick="downloadImage()">שמור כתמונה</button>
+  <div class="chart-container">
+    <canvas id="hitsChart"></canvas>
   </div>
 
   <script>
@@ -88,7 +87,7 @@
       const distance = document.getElementById("distance").value;
 
       if (!file) {
-        alert("נא לבחור תמונה לניתוח.");
+        alert("נא לבחור תמונה.");
         return;
       }
 
@@ -103,49 +102,69 @@
       document.getElementById("resultImage").hidden = true;
 
       try {
-        const response = await fetch("/api/analyze", {
+        const res = await fetch("/api/analyze", {
           method: "POST",
           body: formData
         });
-        const data = await response.json();
+        const data = await res.json();
 
         if (data.status === "success") {
-          const summaryTable = `
+          resultDiv.innerHTML = `
             <table class="summary-table">
               <tr><th>שם יורה</th><td>${data.shooter}</td></tr>
               <tr><th>נשק</th><td>${data.weapon}</td></tr>
               <tr><th>מרחק</th><td>${data.distance} מטר</td></tr>
               <tr><th>פגיעות</th><td>${data.hits}</td></tr>
               <tr><th>תאריך</th><td>${data.timestamp}</td></tr>
-              <tr><th>הערכת AI</th><td>${generateAnalysis(data.hits)}</td></tr>
-            </table>
-          `;
-          resultDiv.innerHTML = summaryTable;
+              <tr><th>AI</th><td>${analyzeComment(data.hits)}</td></tr>
+            </table>`;
+
           const img = document.getElementById("resultImage");
           img.src = data.image_url;
           img.hidden = false;
-          document.getElementById("actions").style.display = "block";
+
+          plotHits(data.hit_coords);
         } else {
           resultDiv.innerHTML = "שגיאה: " + data.message;
         }
-      } catch (error) {
-        resultDiv.innerHTML = "שגיאה: " + error.message;
+      } catch (e) {
+        resultDiv.innerHTML = "שגיאה: " + e.message;
       }
     }
 
-    function generateAnalysis(hits) {
-      if (hits >= 15) return "ירי מדויק מאוד. שליטה מעולה.";
-      if (hits >= 10) return "פגיעות טובות. לשפר ריכוז.";
-      if (hits >= 5) return "ירי בינוני. יש לעבוד על יציבות.";
-      return "נדרשת עבודה בסיסית על אחיזה ותנוחה.";
+    function analyzeComment(hits) {
+      if (hits >= 15) return "מצוין – שליטה מרשימה.";
+      if (hits >= 10) return "טוב מאוד – שיפור קטן.";
+      if (hits >= 5) return "בינוני – שים לב ליציבות.";
+      return "נדרש תרגול בסיסי.";
     }
 
-    function downloadImage() {
-      const img = document.getElementById("resultImage");
-      const link = document.createElement("a");
-      link.href = img.src;
-      link.download = "shotmark_result.jpg";
-      link.click();
+    function plotHits(coords) {
+      const ctx = document.getElementById('hitsChart').getContext('2d');
+      const xData = coords.map(p => p.x);
+      const yData = coords.map(p => p.y);
+
+      new Chart(ctx, {
+        type: 'scatter',
+        data: {
+          datasets: [{
+            label: 'פגיעות',
+            data: coords,
+            backgroundColor: 'red',
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display: false },
+            title: { display: true, text: 'פיזור חורי ירי' }
+          },
+          scales: {
+            x: { title: { display: true, text: 'X' }, min: 0, max: 800 },
+            y: { title: { display: true, text: 'Y' }, min: 0, max: 800 }
+          }
+        }
+      });
     }
   </script>
 
