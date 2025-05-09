@@ -31,7 +31,7 @@ def analyze():
         image_np = np.array(image)
 
         h, w = image_np.shape[:2]
-        roi = image_np[h//5:h*4//5, w//6:w*5//6]
+        roi = image_np[h//5:h*4//5, w//6:w*5//6]  # רק אזור המטרה
         gray = cv2.cvtColor(roi, cv2.COLOR_RGB2GRAY)
         blurred = cv2.GaussianBlur(gray, (5, 5), 0)
         edges = cv2.Canny(blurred, 50, 150)
