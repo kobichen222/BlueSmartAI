@@ -1,10 +1,4 @@
-from flask import Flask, request, jsonify
-
-app = Flask(__name__)
-
-@app.route("/api/analyze", methods=["POST"])
-def analyze():
-    return jsonify({"message": "הנתיב פועל כראוי"})from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory
 from PIL import Image
 import numpy as np
 import cv2
@@ -67,14 +61,5 @@ def static_files(filename):
     return send_from_directory(UPLOAD_FOLDER, filename)
 
 if __name__ == '__main__':
-    app.run(debug=True)
-
-port = int(os.environ.get("PORT", 5000))
-app.run(host='0.0.0.0', port=port)
-from flask import Flask, send_from_directory
-
-app = Flask(__name__, static_folder='static')
-
-@app.route('/')
-def index():
-    return send_from_directory(app.static_folder, 'index.html')
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port)
