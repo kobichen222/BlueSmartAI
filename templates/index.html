@@ -3,92 +3,70 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ShotMark AI</title>
+  <title>ShotMark AI - זיהוי מדויק</title>
   <style>
     body {
-      font-family: 'Arial', sans-serif;
-      background-color: #f9fafe;
-      margin: 0;
-      padding: 0;
+      font-family: Arial, sans-serif;
+      background: #f5f7fa;
       text-align: center;
-      color: #222;
+      padding: 30px;
+      color: #333;
     }
-
-    .wrapper {
-      max-width: 400px;
-      margin: 0 auto;
-      padding: 30px 20px;
-    }
-
     h1 {
-      font-size: 24px;
-      color: #0072c6;
+      color: #0057b7;
       margin-bottom: 10px;
     }
-
-    p {
+    input, button {
       font-size: 16px;
-      color: #555;
-      margin-bottom: 20px;
-    }
-
-    input[type="file"], button {
-      display: block;
-      width: 100%;
-      max-width: 100%;
-      margin: 12px auto;
-      padding: 14px;
-      font-size: 16px;
+      padding: 10px;
+      margin: 8px auto;
       border-radius: 8px;
+      width: 90%;
+      max-width: 400px;
       box-sizing: border-box;
+      display: block;
     }
-
-    input[type="file"] {
-      background: #fff;
-      border: 1px solid #ccc;
-    }
-
     button {
       background-color: #0072c6;
       color: white;
       border: none;
-      cursor: pointer;
     }
-
     button:hover {
       background-color: #005fa3;
     }
-
-    #result {
-      margin-top: 20px;
-      font-size: 18px;
-      color: #2b7a0b;
-    }
-
     img {
       margin-top: 20px;
       max-width: 100%;
       border: 2px solid #0072c6;
       border-radius: 10px;
     }
+    #result {
+      font-size: 18px;
+      margin-top: 20px;
+    }
   </style>
 </head>
 <body>
 
-  <div class="wrapper">
-    <h1>🔵 ShotMark AI</h1>
-    <p>העלה תמונה של מטרה לניתוח פגיעות</p>
+  <h1>🔵 ShotMark AI</h1>
+  <p>העלה תמונה לניתוח פגיעות מדויק במטרה</p>
 
-    <input type="file" id="imageInput" accept="image/*">
-    <button onclick="analyzeImage()">שלח לניתוח</button>
+  <input type="text" id="shooter" placeholder="שם יורה (למשל: עזרא)">
+  <input type="text" id="weapon" placeholder="סוג כלי נשק (למשל: Glock)">
+  <input type="text" id="distance" placeholder="מרחק מהמטרה (מטרים)">
+  <input type="file" id="imageInput" accept="image/*">
+  <button onclick="analyzeImage()">שלח לניתוח</button>
 
-    <div id="result"></div>
-    <img id="resultImage" src="" alt="" hidden>
-  </div>
+  <div id="result"></div>
+  <img id="resultImage" src="" alt="" hidden>
 
   <script>
     async function analyzeImage() {
       const file = document.getElementById('imageInput').files[0];
+      const shooter = document.getElementById('shooter').value;
+      const weapon = document.getElementById('weapon').value;
+      const distance = document.getElementById('distance').value;
+
       if (!file) {
         alert("נא לבחור תמונה לניתוח");
         return;
@@ -96,20 +74,22 @@
 
       const formData = new FormData();
       formData.append("image", file);
+      formData.append("shooter", shooter);
+      formData.append("weapon", weapon);
+      formData.append("distance", distance);
 
-      const resultDiv = document.getElementById('result');
+      const resultDiv = document.getElementById("result");
       resultDiv.innerText = "⏳ מבצע ניתוח...";
-      document.getElementById('resultImage').hidden = true;
+      document.getElementById("resultImage").hidden = true;
 
       try {
         const response = await fetch("/api/analyze", {
           method: "POST",
           body: formData
         });
-
         const data = await response.json();
         if (data.status === "success") {
-          resultDiv.innerText = data.message;
+          resultDiv.innerHTML = `<b>${data.message}</b><br>יורה: ${data.shooter}<br>נשק: ${data.weapon}<br>מרחק: ${data.distance}<br>תאריך: ${data.timestamp}`;
           const img = document.getElementById("resultImage");
           img.src = data.image_url;
           img.hidden = false;
