@@ -60,8 +60,9 @@ def analyze():
         }), 500
 
 @app.route('/static/<path:filename>')
-def static_files(filename):
+def serve_static(filename):
     return send_from_directory(UPLOAD_FOLDER, filename)
 
 if __name__ == '__main__':
-port = int(os.environ['PORT'])  # חובה! בלי ברירת מחדל
+    port = int(os.environ['PORT'])  # Render מספק את הפורט דרך משתנה סביבה
+    app.run(host='0.0.0.0', port=port)
