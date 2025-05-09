@@ -17,7 +17,7 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 @app.route('/')
 def home():
-    return '🔵 שרת ShotMark AI פעיל - שלח תמונה לניתוח דרך /api/analyze'
+    return '🔵 שרת ShotMark AI פעיל - עבור לממשק ב /app'
 
 @app.route('/app')
 def interface():
@@ -86,7 +86,7 @@ def analyze():
         })
 
     except Exception as e:
-        return jsonify({"status": "error", "message": f"שגיאת ניתוח: {str(e)}"}), 500
+        return jsonify({"status": "error", "message": f"שגיאה: {str(e)}"}), 500
 
 @app.route('/static/<path:filename>')
 def serve_static(filename):
