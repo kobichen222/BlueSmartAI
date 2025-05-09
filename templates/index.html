@@ -71,7 +71,7 @@
 <body>
 
   <h1>🔵 ShotMark AI</h1>
-  <p>מערכת ניתוח חורים חכמה</p>
+  <p>מערכת ניתוח פגיעות בזמן אמת</p>
 
   <input type="text" id="shooter" placeholder="שם יורה">
   <input type="text" id="weapon" placeholder="סוג נשק">
@@ -87,6 +87,8 @@
   </div>
 
   <script>
+    let chartInstance = null;
+
     async function analyzeImage() {
       const file = document.getElementById("imageInput").files[0];
       const shooter = document.getElementById("shooter").value;
@@ -143,7 +145,11 @@
       const ctx = document.getElementById('hitsChart').getContext('2d');
       const data = coords.map(p => ({ x: p.x, y: p.y }));
 
-      new Chart(ctx, {
+      if (chartInstance) {
+        chartInstance.destroy();
+      }
+
+      chartInstance = new Chart(ctx, {
         type: 'scatter',
         data: {
           datasets: [{
@@ -159,7 +165,7 @@
           },
           plugins: {
             legend: { display: false },
-            title: { display: true, text: 'גרף פגיעות במטרה' }
+            title: { display: true, text: 'גרף פגיעות' }
           }
         }
       });
