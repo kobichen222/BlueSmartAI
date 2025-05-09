@@ -31,7 +31,7 @@ def analyze():
         image_np = np.array(image)
 
         h, w = image_np.shape[:2]
-        roi = image_np[h//5:h*4//5, w//6:w*5//6]  # אזור המטרה בלבד
+        roi = image_np[h//5:h*4//5, w//6:w*5//6]
         gray = cv2.cvtColor(roi, cv2.COLOR_RGB2GRAY)
         blurred = cv2.GaussianBlur(gray, (5, 5), 0)
         edges = cv2.Canny(blurred, 50, 150)
@@ -51,4 +51,18 @@ def analyze():
 
         return jsonify({
             "status": "success",
-            "
+            "message": f"✅ זוהו {hit_count} פגיעות במטרה",
+            "hits": hit_count,
+            "image_url": urljoin(request.url_root, 'static/result.jpg')
+        })
+
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/static/<path:filename>')
+def static_files(filename):
+    return send_from_directory(UPLOAD_FOLDER, filename)
+
+if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)
