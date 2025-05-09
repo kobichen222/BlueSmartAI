@@ -2,63 +2,73 @@
 <html lang="he" dir="rtl">
 <head>
   <meta charset="UTF-8">
+  <title>ShotMark AI - ניתוח פגיעות</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ShotMark AI - זיהוי מדויק</title>
   <style>
     body {
       font-family: Arial, sans-serif;
-      background: #f5f7fa;
+      background: #f3f6fa;
       text-align: center;
-      padding: 30px;
-      color: #333;
+      padding: 20px;
+      color: #222;
     }
     h1 {
       color: #0057b7;
       margin-bottom: 10px;
     }
+    p {
+      margin-top: 0;
+      font-size: 16px;
+    }
     input, button {
       font-size: 16px;
       padding: 10px;
       margin: 8px auto;
-      border-radius: 8px;
       width: 90%;
       max-width: 400px;
-      box-sizing: border-box;
+      border-radius: 8px;
+      border: 1px solid #ccc;
       display: block;
+      box-sizing: border-box;
     }
     button {
-      background-color: #0072c6;
+      background-color: #0057b7;
       color: white;
       border: none;
+      cursor: pointer;
     }
     button:hover {
-      background-color: #005fa3;
-    }
-    img {
-      margin-top: 20px;
-      max-width: 100%;
-      border: 2px solid #0072c6;
-      border-radius: 10px;
+      background-color: #004599;
     }
     #result {
       font-size: 18px;
       margin-top: 20px;
+    }
+    img {
+      margin-top: 20px;
+      max-width: 100%;
+      border: 2px solid #007bff;
+      border-radius: 10px;
+    }
+    a {
+      color: #0057b7;
+      font-weight: bold;
     }
   </style>
 </head>
 <body>
 
   <h1>🔵 ShotMark AI</h1>
-  <p>העלה תמונה לניתוח פגיעות מדויק במטרה</p>
+  <p>מנתח את הפגיעות שלך בדיוק צבאי</p>
 
-  <input type="text" id="shooter" placeholder="שם יורה (למשל: עזרא)">
-  <input type="text" id="weapon" placeholder="סוג כלי נשק (למשל: Glock)">
+  <input type="text" id="shooter" placeholder="שם יורה (לדוגמה: עזרא)">
+  <input type="text" id="weapon" placeholder="סוג נשק (לדוגמה: Glock 19)">
   <input type="text" id="distance" placeholder="מרחק מהמטרה (מטרים)">
   <input type="file" id="imageInput" accept="image/*">
-  <button onclick="analyzeImage()">שלח לניתוח</button>
+  <button onclick="analyzeImage()">נתח תמונה</button>
 
   <div id="result"></div>
-  <img id="resultImage" src="" alt="" hidden>
+  <img id="resultImage" src="" hidden>
 
   <script>
     async function analyzeImage() {
@@ -68,7 +78,7 @@
       const distance = document.getElementById('distance').value;
 
       if (!file) {
-        alert("נא לבחור תמונה לניתוח");
+        alert("נא לבחור תמונה של מטרה לניתוח");
         return;
       }
 
@@ -79,7 +89,7 @@
       formData.append("distance", distance);
 
       const resultDiv = document.getElementById("result");
-      resultDiv.innerText = "⏳ מבצע ניתוח...";
+      resultDiv.innerHTML = "⏳ מתבצע ניתוח...";
       document.getElementById("resultImage").hidden = true;
 
       try {
@@ -87,17 +97,25 @@
           method: "POST",
           body: formData
         });
+
         const data = await response.json();
         if (data.status === "success") {
-          resultDiv.innerHTML = `<b>${data.message}</b><br>יורה: ${data.shooter}<br>נשק: ${data.weapon}<br>מרחק: ${data.distance}<br>תאריך: ${data.timestamp}`;
+          resultDiv.innerHTML = `
+            <b>${data.message}</b><br>
+            <b>יורה:</b> ${data.shooter}<br>
+            <b>נשק:</b> ${data.weapon}<br>
+            <b>מרחק:</b> ${data.distance} מטרים<br>
+            <b>תאריך:</b> ${data.timestamp}<br>
+            <br><a href="${data.image_url}" target="_blank">הצג תמונה מסומנת</a>
+          `;
           const img = document.getElementById("resultImage");
           img.src = data.image_url;
           img.hidden = false;
         } else {
-          resultDiv.innerText = "שגיאה: " + data.message;
+          resultDiv.innerHTML = "שגיאה: " + data.message;
         }
       } catch (error) {
-        resultDiv.innerText = "שגיאת שרת: " + error.message;
+        resultDiv.innerHTML = "שגיאת שרת: " + error.message;
       }
     }
   </script>
