@@ -55,12 +55,23 @@
       text-align: right;
       direction: rtl;
     }
+    .score-box {
+      font-size: 22px;
+      font-weight: bold;
+      color: green;
+      margin: 15px 0;
+    }
+    .ai-comment {
+      font-size: 16px;
+      color: #333;
+      margin-bottom: 10px;
+    }
   </style>
 </head>
 <body>
 
   <h1>🔵 ShotMark AI</h1>
-  <p>מערכת ניתוח חורים בזמן אמת</p>
+  <p>מערכת ניתוח חורים חכמה</p>
 
   <input type="text" id="shooter" placeholder="שם יורה">
   <input type="text" id="weapon" placeholder="סוג נשק">
@@ -106,12 +117,13 @@
 
         if (data.status === "success") {
           resultDiv.innerHTML = `
+            <div class="score-box">AI SCORE: ${data.ai_score}/100</div>
+            <div class="ai-comment">${data.analysis_summary}</div>
             <b>יורה:</b> ${data.shooter}<br>
             <b>נשק:</b> ${data.weapon}<br>
             <b>מרחק:</b> ${data.distance}<br>
-            <b>פגיעות תקפות:</b> ${data.hits}<br>
-            <b>תאריך:</b> ${data.timestamp}<br>
-            <b>AI:</b> ${getFeedback(data.hits)}
+            <b>פגיעות חוקיות:</b> ${data.hits}<br>
+            <b>תאריך:</b> ${data.timestamp}
           `;
 
           const img = document.getElementById("resultImage");
@@ -127,13 +139,6 @@
       }
     }
 
-    function getFeedback(hits) {
-      if (hits >= 15) return "ירי מדויק ומרוכז – כל הכבוד!";
-      if (hits >= 10) return "ביצוע טוב – שפר מיקוד.";
-      if (hits >= 5) return "בינוני – מומלץ תרגול נוסף.";
-      return "נדרש שיפור בסיסי.";
-    }
-
     function plotHits(coords) {
       const ctx = document.getElementById('hitsChart').getContext('2d');
       const data = coords.map(p => ({ x: p.x, y: p.y }));
@@ -142,7 +147,7 @@
         type: 'scatter',
         data: {
           datasets: [{
-            label: 'פגיעות במטרה',
+            label: 'פגיעות',
             data: data,
             backgroundColor: 'green'
           }]
@@ -154,7 +159,7 @@
           },
           plugins: {
             legend: { display: false },
-            title: { display: true, text: 'פיזור פגיעות' }
+            title: { display: true, text: 'גרף פגיעות במטרה' }
           }
         }
       });
