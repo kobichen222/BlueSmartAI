@@ -9,6 +9,16 @@
   <input type="file" id="imageInput">
   <button onclick="analyzeImage()">שלח</button>
   <p id="result"></p>
+  <div id="analysis" style="text-align:right; display:none;">
+    <table>
+      <tr><td>סך פגיעות:</td><td id="totalHits"></td></tr>
+      <tr><td>ריכוז משוער:</td><td id="centralRatio">—</td></tr>
+      <tr><td>סטייה ממוצעת:</td><td id="avgDeviation">—</td></tr>
+      <tr><td>ציון כולל:</td><td id="score">—</td></tr>
+    </table>
+    <button onclick="generatePDF()">הפק דו\"ח PDF</button>
+    <button onclick="shareResult()">שתף תוצאה</button>
+  </div>
   <img id="resultImage" style="max-width:400px;" hidden>
 
   <script>
@@ -16,6 +26,7 @@
       const file = document.getElementById('imageInput').files[0];
       const formData = new FormData();
       formData.append("image", file);
+
       const res = await fetch('/api/analyze', {
         method: 'POST',
         body: formData
@@ -26,7 +37,24 @@
         const img = document.getElementById('resultImage');
         img.src = data.image_url;
         img.hidden = false;
+
+        document.getElementById('analysis').style.display = "block";
+        document.getElementById('totalHits').innerText = data.hits;
+        document.getElementById('score').innerText = (Math.min(100, data.hits)) + "/100";
       }
+    }
+
+    function generatePDF() {
+      window.open('/api/report');
+    }
+
+    function shareResult() {
+      const url = window.location.href;
+      navigator.share ? navigator.share({
+        title: "ShotMark AI",
+        text: "תראה את תוצאת הירי שלי!",
+        url: url
+      }) : alert("העתק קישור: " + url);
     }
   </script>
 </body>
