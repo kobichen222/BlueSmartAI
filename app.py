@@ -23,7 +23,7 @@ def interface():
     return render_template('index.html')
 
 @app.route('/api/analyze', methods=['POST'])
-def analyze():
+def analyze_view():
     if 'image' not in request.files:
         return jsonify({ "status": "error", "message": "❌ קובץ תמונה לא סופק" }), 400
 
@@ -75,7 +75,7 @@ def analyze():
 
         return jsonify({
             "status": "success",
-            "message": f"✅ זוהו {hit_count} פגיעות בתוך עיגול המטרה ו-{miss_count} פגיעות מחוץ לעיגול המטרה",
+            "message": f"✅ זוהו {hit_count} פגיעות בתוך עיגול המטרה ו-{miss_count} מחוץ",
             "hits": hit_count,
             "misses": miss_count,
             "image_url": urljoin(request.url_root, 'static/' + result_filename),
