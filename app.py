@@ -5,16 +5,23 @@ import numpy as np
 import cv2
 import os
 from urllib.parse import urljoin
+from datetime import datetime
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.utils import ImageReader
 
 app = Flask(__name__)
 CORS(app)
 
 UPLOAD_FOLDER = 'static'
+REPORT_FOLDER = 'static/reports'
+HISTORY_FILE = 'history.csv'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+os.makedirs(REPORT_FOLDER, exist_ok=True)
 
 @app.route('/')
 def home():
-    return '🔵 ShotMark AI - ניתוח פגיעות'
+    return '🔵 ShotMark AI פעיל - שלח תמונה לניתוח דרך /api/analyze'
 
 @app.route('/app')
 def interface():
@@ -23,46 +30,106 @@ def interface():
 @app.route('/api/analyze', methods=['POST'])
 def analyze():
     if 'image' not in request.files:
-        return jsonify({"status": "error", "message": "❌ לא נשלחה תמונה"}), 400
+        return jsonify({ "status": "error", "message": "❌ קובץ תמונה לא סופק" }), 400
 
     try:
+        shooter = request.form.get('shooter', 'לא ידוע')
+        weapon = request.form.get('weapon', 'לא צויין')
+        distance = request.form.get('distance', 'לא ידוע')
+
         file = request.files['image']
         image = Image.open(file.stream).convert('RGB')
         image_np = np.array(image)
 
         h, w = image_np.shape[:2]
-        roi = image_np[h//5:h*4//5, w//6:w*5//6]  # רק אזור המטרה
-        gray = cv2.cvtColor(roi, cv2.COLOR_RGB2GRAY)
+        cx, cy = w // 2, h // 2
+        radius = min(w, h) // 3
+        mask = np.zeros((h, w), dtype=np.uint8)
+        cv2.circle(mask, (cx, cy), radius, 255, -1)
+
+        target_area = cv2.bitwise_and(image_np, image_np, mask=mask)
+        gray = cv2.cvtColor(target_area, cv2.COLOR_RGB2GRAY)
         blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-        edges = cv2.Canny(blurred, 50, 150)
+        edges = cv2.Canny(blurred, 30, 150)
 
         contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        output = image_np.copy()
         hit_count = 0
+
         for c in contours:
             area = cv2.contourArea(c)
-            if 30 < area < 300:
+            if 50 < area < 300:
                 x, y, w2, h2 = cv2.boundingRect(c)
-                cv2.circle(roi, (x + w2//2, y + h2//2), 10, (255, 0, 0), 2)
-                hit_count += 1
+                cx2, cy2 = x + w2 // 2, y + h2 // 2
+                distance_from_center = np.sqrt((cx - cx2) ** 2 + (cy - cy2) ** 2)
+                if distance_from_center < radius:
+                    cv2.circle(output, (cx2, cy2), 10, (255, 0, 0), 2)
+                    hit_count += 1
 
-        image_np[h//5:h*4//5, w//6:w*5//6] = roi
-        result_path = os.path.join(UPLOAD_FOLDER, 'result.jpg')
-        cv2.imwrite(result_path, cv2.cvtColor(image_np, cv2.COLOR_RGB2BGR))
+        now = datetime.now().strftime("%Y-%m-%d %H:%M")
+        timestamp_id = datetime.now().strftime("%Y%m%d_%H%M%S")
+        result_filename = f'result_{timestamp_id}.jpg'
+        result_path = os.path.join(UPLOAD_FOLDER, result_filename)
+        cv2.imwrite(result_path, cv2.cvtColor(output, cv2.COLOR_RGB2BGR))
+
+        # PDF Report
+        pdf_filename = f'report_{timestamp_id}.pdf'
+        pdf_path = os.path.join(REPORT_FOLDER, pdf_filename)
+        c = canvas.Canvas(pdf_path, pagesize=A4)
+        c.setFont("Helvetica-Bold", 18)
+        c.drawString(50, 800, "דו\"ח פגיעות - ShotMark AI")
+        c.setFont("Helvetica", 12)
+        c.drawString(50, 770, f"יורה: {shooter}")
+        c.drawString(50, 755, f"נשק: {weapon}")
+        c.drawString(50, 740, f"מרחק מהמטרה: {distance} מטרים")
+        c.drawString(50, 725, f"מספר פגיעות מזוהות: {hit_count}")
+        c.drawString(50, 710, f"תאריך: {now}")
+        c.drawImage(ImageReader(result_path), 50, 400, width=400, preserveAspectRatio=True, mask='auto')
+        c.setFont("Helvetica-Oblique", 10)
+        c.drawString(50, 100, "דו\"ח זה הופק אוטומטית על ידי מערכת ShotMark AI | www.bluetarget.tech")
+        c.save()
+
+        with open(HISTORY_FILE, 'a', encoding='utf-8') as f:
+            f.write(f"{shooter},{weapon},{distance},{hit_count},{now}\n")
 
         return jsonify({
             "status": "success",
-            "message": f"✅ זוהו {hit_count} פגיעות במטרה",
+            "message": f"✅ זוהו {hit_count} פגיעות בתוך עיגול המטרה",
             "hits": hit_count,
-            "image_url": urljoin(request.url_root, 'static/result.jpg')
+            "image_url": urljoin(request.url_root, 'static/' + result_filename),
+            "pdf_url": urljoin(request.url_root, 'static/reports/' + pdf_filename),
+            "shooter": shooter,
+            "weapon": weapon,
+            "distance": distance,
+            "timestamp": now
         })
 
     except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
+        return jsonify({ "status": "error", "message": f"שגיאת ניתוח: {str(e)}" }), 500
 
 @app.route('/static/<path:filename>')
-def static_files(filename):
+def serve_static(filename):
     return send_from_directory(UPLOAD_FOLDER, filename)
 
+@app.route('/api/history')
+def get_history():
+    if not os.path.exists(HISTORY_FILE):
+        return jsonify([])
+    with open(HISTORY_FILE, 'r', encoding='utf-8') as f:
+        lines = f.readlines()
+    history = []
+    for line in lines:
+        parts = line.strip().split(',')
+        if len(parts) == 5:
+            history.append({
+                "shooter": parts[0],
+                "weapon": parts[1],
+                "distance": parts[2],
+                "hits": parts[3],
+                "timestamp": parts[4]
+            })
+    return jsonify(history)
+
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
+    port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
