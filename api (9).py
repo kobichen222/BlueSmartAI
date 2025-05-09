@@ -1,4 +1,10 @@
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify
+
+app = Flask(__name__)
+
+@app.route("/api/analyze", methods=["POST"])
+def analyze():
+    return jsonify({"message": "הנתיב פועל כראוי"})from flask import Flask, request, jsonify, send_from_directory
 from PIL import Image
 import numpy as np
 import cv2
