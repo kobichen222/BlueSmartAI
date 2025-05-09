@@ -40,15 +40,12 @@ def analyze():
         cx, cy = w // 2, h // 2
         radius = min(w, h) // 3
 
-        # מסכת עיגול מטרה
         mask = np.zeros((h, w), dtype=np.uint8)
         cv2.circle(mask, (cx, cy), radius, 255, -1)
 
-        # עיבוד תמונה
         gray = cv2.cvtColor(image_np, cv2.COLOR_RGB2GRAY)
         blurred = cv2.GaussianBlur(gray, (5, 5), 0)
 
-        # זיהוי חורי ירי
         circles = cv2.HoughCircles(
             blurred, cv2.HOUGH_GRADIENT, dp=1.2, minDist=20,
             param1=50, param2=25, minRadius=4, maxRadius=12
@@ -59,11 +56,12 @@ def analyze():
         hit_coords = []
 
         if circles is not None:
-            for x, y, r in np.uint16(np.around(circles[0])):
-                distance = np.sqrt((x - cx)**2 + (y - cy)**2)
-                if distance < radius and mask[y, x] == 255:
+            for circle in circles[0]:
+                x, y, r = map(int, np.around(circle))
+                distance_from_center = np.sqrt((x - cx)**2 + (y - cy)**2)
+                if distance_from_center < radius and mask[y, x] == 255:
                     hit_count += 1
-                    hit_coords.append({ "x": int(x), "y": int(y) })
+                    hit_coords.append({ "x": x, "y": y })
                     cv2.circle(output, (x, y), r, (0, 255, 0), 2)
 
         # ניתוח AI
@@ -83,7 +81,6 @@ def analyze():
             summary = "לא זוהו פגיעות חוקיות – יש לבדוק תנוחת ירי ולחזור על האימון."
             score = 30
 
-        # שמירה
         result_filename = f'result_{datetime.now().strftime("%Y%m%d_%H%M%S")}.jpg'
         result_path = os.path.join(UPLOAD_FOLDER, result_filename)
         cv2.imwrite(result_path, cv2.cvtColor(output, cv2.COLOR_RGB2BGR))
