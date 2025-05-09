@@ -1,68 +1,97 @@
-from flask import Flask, request, jsonify, send_from_directory, render_template
-from flask_cors import CORS
-from PIL import Image
-import numpy as np
-import cv2
-import os
-from urllib.parse import urljoin
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ShotMark AI</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f7fc;
+      text-align: center;
+      padding: 40px 20px;
+      margin: 0;
+    }
+    h1 {
+      color: #0057b7;
+      font-size: 28px;
+      margin-bottom: 10px;
+    }
+    p {
+      font-size: 16px;
+      margin-bottom: 20px;
+    }
+    input, button {
+      padding: 12px;
+      font-size: 16px;
+      border-radius: 8px;
+      margin: 10px auto;
+      width: 90%;
+      max-width: 400px;
+      box-sizing: border-box;
+    }
+    button {
+      background-color: #0057b7;
+      color: white;
+      border: none;
+    }
+    button:hover {
+      background-color: #004aa3;
+    }
+    img {
+      margin-top: 20px;
+      width: 90%;
+      max-width: 400px;
+      border: 2px solid #0057b7;
+      border-radius: 10px;
+    }
+  </style>
+</head>
+<body>
 
-app = Flask(__name__)
-CORS(app)
+  <h1>🔵 ShotMark AI</h1>
+  <p>בחר תמונה מהמכשיר לניתוח פגיעות</p>
 
-UPLOAD_FOLDER = 'static'
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+  <input type="file" id="imageInput" accept="image/*">
+  <button onclick="analyzeImage()">שלח לניתוח</button>
 
-@app.route('/')
-def home():
-    return '🔵 ShotMark AI - ניתוח פגיעות'
+  <p id="result"></p>
+  <img id="resultImage" src="" alt="" hidden>
 
-@app.route('/app')
-def interface():
-    return render_template('index.html')
+  <script>
+    async function analyzeImage() {
+      const file = document.getElementById('imageInput').files[0];
+      if (!file) {
+        alert("יש לבחור תמונה לניתוח");
+        return;
+      }
 
-@app.route('/api/analyze', methods=['POST'])
-def analyze():
-    if 'image' not in request.files:
-        return jsonify({"status": "error", "message": "❌ לא נשלחה תמונה"}), 400
+      const formData = new FormData();
+      formData.append("image", file);
 
-    try:
-        file = request.files['image']
-        image = Image.open(file.stream).convert('RGB')
-        image_np = np.array(image)
+      document.getElementById("result").innerText = "⏳ מנתח...";
+      document.getElementById("resultImage").hidden = true;
 
-        h, w = image_np.shape[:2]
-        roi = image_np[h//5:h*4//5, w//6:w*5//6]  # רק אזור המטרה
-        gray = cv2.cvtColor(roi, cv2.COLOR_RGB2GRAY)
-        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-        edges = cv2.Canny(blurred, 50, 150)
+      try {
+        const response = await fetch("/api/analyze", {
+          method: "POST",
+          body: formData
+        });
 
-        contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        hit_count = 0
-        for c in contours:
-            area = cv2.contourArea(c)
-            if 30 < area < 300:
-                x, y, w2, h2 = cv2.boundingRect(c)
-                cv2.circle(roi, (x + w2//2, y + h2//2), 10, (255, 0, 0), 2)
-                hit_count += 1
+        const data = await response.json();
+        if (data.status === "success") {
+          document.getElementById("result").innerText = data.message;
+          const img = document.getElementById("resultImage");
+          img.src = data.image_url;
+          img.hidden = false;
+        } else {
+          document.getElementById("result").innerText = "שגיאה: " + data.message;
+        }
+      } catch (error) {
+        document.getElementById("result").innerText = "שגיאה בהעלאה: " + error.message;
+      }
+    }
+  </script>
 
-        image_np[h//5:h*4//5, w//6:w*5//6] = roi
-        result_path = os.path.join(UPLOAD_FOLDER, 'result.jpg')
-        cv2.imwrite(result_path, cv2.cvtColor(image_np, cv2.COLOR_RGB2BGR))
-
-        return jsonify({
-            "status": "success",
-            "message": f"✅ זוהו {hit_count} פגיעות במטרה",
-            "hits": hit_count,
-            "image_url": urljoin(request.url_root, 'static/result.jpg')
-        })
-
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-@app.route('/static/<path:filename>')
-def static_files(filename):
-    return send_from_directory(UPLOAD_FOLDER, filename)
-
-if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port)
+</body>
+</html>
