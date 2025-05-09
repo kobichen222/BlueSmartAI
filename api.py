@@ -21,3 +21,8 @@ def analyze():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=10000)
+app = Flask(__name__, static_folder='static')
+
+@app.route('/')
+def index():
+    return send_from_directory(app.static_folder, 'index.html')
