@@ -56,8 +56,10 @@
         });
 
         const data = await response.json();
+        console.log(data);
+
         if (data.status === "success") {
-          resultDiv.innerHTML = `<b>${data.message}</b><br><a href="${data.image_url}" target="_blank">הצג תמונה</a>`;
+          resultDiv.innerHTML = `<b>${data.message}</b><br><a href="${data.image_url}" target="_blank">הצג תמונה מסומנת</a>`;
           const img = document.getElementById('resultImage');
           img.src = data.image_url;
           img.hidden = false;
@@ -65,11 +67,10 @@
           resultDiv.innerHTML = "שגיאה: " + data.message;
         }
       } catch (err) {
-        resultDiv.innerHTML = "שגיאה: " + err.message;
+        resultDiv.innerHTML = "שגיאת תקשורת: " + err.message;
       }
     }
   </script>
 
 </body>
-</html>Method Not Allowed
-The method is not allowed for the requested URL.
+</html>
