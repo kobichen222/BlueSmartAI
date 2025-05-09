@@ -43,10 +43,10 @@ def analyze():
         cv2.circle(mask, (cx, cy), radius, 255, -1)
 
         gray = cv2.cvtColor(image_np, cv2.COLOR_RGB2GRAY)
-        gray_blurred = cv2.medianBlur(gray, 5)
+        blurred = cv2.medianBlur(gray, 5)
 
         circles = cv2.HoughCircles(
-            gray_blurred, cv2.HOUGH_GRADIENT, dp=1.2, minDist=20,
+            blurred, cv2.HOUGH_GRADIENT, dp=1.2, minDist=20,
             param1=50, param2=30, minRadius=4, maxRadius=12
         )
 
@@ -59,7 +59,7 @@ def analyze():
             for x, y, r in circles:
                 distance_from_center = np.sqrt((cx - x)**2 + (cy - y)**2)
                 if distance_from_center < radius and mask[y, x] == 255:
-                    cv2.circle(output, (x, y), r, (255, 0, 0), 2)
+                    cv2.circle(output, (x, y), r, (0, 255, 0), 2)  # חור חוקי – בירוק
                     hit_count += 1
                     hit_coords.append({'x': int(x), 'y': int(y)})
 
@@ -73,7 +73,7 @@ def analyze():
 
         return jsonify({
             "status": "success",
-            "message": f"✅ זוהו {hit_count} חורי ירי עגולים בתוך המטרה",
+            "message": f"✅ זוהו {hit_count} פגיעות חוקיות במטרה",
             "hits": hit_count,
             "hit_coords": hit_coords,
             "image_url": urljoin(request.url_root, 'static/' + result_filename),
