@@ -39,15 +39,19 @@ def analyze():
         h, w = image_np.shape[:2]
         cx, cy = w // 2, h // 2
         radius = min(w, h) // 3
+
+        # יצירת מסכה עגולה של המטרה בלבד
         mask = np.zeros((h, w), dtype=np.uint8)
         cv2.circle(mask, (cx, cy), radius, 255, -1)
 
+        # עיבוד תמונה
         gray = cv2.cvtColor(image_np, cv2.COLOR_RGB2GRAY)
-        blurred = cv2.medianBlur(gray, 5)
+        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
 
+        # זיהוי חורי ירי
         circles = cv2.HoughCircles(
             blurred, cv2.HOUGH_GRADIENT, dp=1.2, minDist=20,
-            param1=50, param2=30, minRadius=4, maxRadius=12
+            param1=50, param2=25, minRadius=4, maxRadius=12
         )
 
         output = image_np.copy()
@@ -55,14 +59,31 @@ def analyze():
         hit_coords = []
 
         if circles is not None:
-            circles = np.uint16(np.around(circles[0]))
-            for x, y, r in circles:
-                distance_from_center = np.sqrt((cx - x)**2 + (cy - y)**2)
-                if distance_from_center < radius and mask[y, x] == 255:
-                    cv2.circle(output, (x, y), r, (0, 255, 0), 2)  # חור חוקי – בירוק
+            for x, y, r in np.uint16(np.around(circles[0])):
+                distance = np.sqrt((x - cx)**2 + (y - cy)**2)
+                if distance < radius and mask[y, x] == 255:
                     hit_count += 1
-                    hit_coords.append({'x': int(x), 'y': int(y)})
+                    hit_coords.append({ "x": int(x), "y": int(y) })
+                    cv2.circle(output, (x, y), r, (0, 255, 0), 2)
 
+        # ניתוח AI בסיסי
+        if hit_count >= 15:
+            summary = "רמת ירי יוצאת דופן – צלף מקצועי עם ריכוז גבוה ואפס סטייה."
+            score = 98
+        elif hit_count >= 10:
+            summary = "רמה גבוהה מאוד – ריכוז טוב, סטייה מינימלית, שליטה טובה."
+            score = 92
+        elif hit_count >= 5:
+            summary = "ירי בינוני – פגיעות סבירות אך דרוש תרגול לשיפור ריכוז."
+            score = 75
+        elif hit_count > 0:
+            summary = "פגיעות בודדות – מומלץ אימון בסיסי נוסף על מיקוד ואחיזה."
+            score = 55
+        else:
+            summary = "לא זוהו פגיעות חוקיות – יש לבדוק תנוחת ירי ולחזור על האימון."
+            score = 30
+
+        # שמירת תוצאה
         result_filename = f'result_{datetime.now().strftime("%Y%m%d_%H%M%S")}.jpg'
         result_path = os.path.join(UPLOAD_FOLDER, result_filename)
         cv2.imwrite(result_path, cv2.cvtColor(output, cv2.COLOR_RGB2BGR))
@@ -80,7 +101,9 @@ def analyze():
             "shooter": shooter,
             "weapon": weapon,
             "distance": distance,
-            "timestamp": now
+            "timestamp": now,
+            "ai_score": score,
+            "analysis_summary": summary
         })
 
     except Exception as e:
