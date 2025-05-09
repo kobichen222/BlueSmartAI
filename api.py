@@ -14,17 +14,22 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 @app.route('/')
 def home():
-    return '🔵 ShotMark AI - השרת פעיל. השתמש ב־/api/analyze לשליחת תמונה.'
+    return '🔵 שרת ShotMark AI פעיל - שלח תמונה לניתוח דרך /api/analyze'
 
 @app.route('/api/analyze', methods=['POST'])
 def analyze():
     if 'image' not in request.files:
-        return jsonify({"status": "error", "message": "❌ קובץ תמונה לא נשלח"}), 400
+        return jsonify({
+            "status": "error",
+            "message": "❌ קובץ תמונה לא סופק"
+        }), 400
 
     try:
         file = request.files['image']
         image = Image.open(file.stream).convert('RGB')
         image_np = np.array(image)
+
+        # עיבוד תמונה עם OpenCV
         gray = cv2.cvtColor(image_np, cv2.COLOR_RGB2GRAY)
         blurred = cv2.GaussianBlur(gray, (5, 5), 0)
         edges = cv2.Canny(blurred, 50, 150)
@@ -51,12 +56,16 @@ def analyze():
         })
 
     except Exception as e:
-        return jsonify({"status": "error", "message": f"שגיאה פנימית: {str(e)}"}), 500
+        return jsonify({
+            "status": "error",
+            "message": f"שגיאת ניתוח: {str(e)}"
+        }), 500
 
 @app.route('/static/<path:filename>')
-def serve_file(filename):
+def serve_static(filename):
     return send_from_directory(UPLOAD_FOLDER, filename)
 
 if __name__ == '__main__':
-    port = int(os.environ['PORT'])
+    import os
+    port = int(os.environ['PORT'])  # קריטי! ל-Render
     app.run(host='0.0.0.0', port=port)
