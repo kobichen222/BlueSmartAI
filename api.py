@@ -38,13 +38,12 @@ def analyze():
 
         h, w = image_np.shape[:2]
 
-        # אזור מטרה בלבד: ריבוע אמצעי + מסכה עגולה
+        # מסכה עגולה – רק על אזור המטרה
         cx, cy = w // 2, h // 2
         radius = min(w, h) // 3
         mask = np.zeros((h, w), dtype=np.uint8)
         cv2.circle(mask, (cx, cy), radius, 255, -1)
 
-        # החלת מסכה + קונטרסט
         target_area = cv2.bitwise_and(image_np, image_np, mask=mask)
         gray = cv2.cvtColor(target_area, cv2.COLOR_RGB2GRAY)
         blurred = cv2.GaussianBlur(gray, (5, 5), 0)
@@ -58,8 +57,8 @@ def analyze():
             area = cv2.contourArea(c)
             if 50 < area < 300:
                 x, y, w2, h2 = cv2.boundingRect(c)
-                cx2, cy2 = x + w2//2, y + h2//2
-                distance_from_center = np.sqrt((cx - cx2)**2 + (cy - cy2)**2)
+                cx2, cy2 = x + w2 // 2, y + h2 // 2
+                distance_from_center = np.sqrt((cx - cx2) ** 2 + (cy - cy2) ** 2)
                 if distance_from_center < radius:
                     cv2.circle(output, (cx2, cy2), 10, (255, 0, 0), 2)
                     hit_count += 1
@@ -68,7 +67,6 @@ def analyze():
         result_path = os.path.join(UPLOAD_FOLDER, result_filename)
         cv2.imwrite(result_path, cv2.cvtColor(output, cv2.COLOR_RGB2BGR))
 
-        # היסטוריה
         now = datetime.now().strftime("%Y-%m-%d %H:%M")
         with open(HISTORY_FILE, 'a', encoding='utf-8') as f:
             f.write(f"{shooter},{weapon},{distance},{hit_count},{now}\n")
@@ -93,4 +91,23 @@ def serve_static(filename):
 
 @app.route('/api/history')
 def get_history():
-    if not os.path
+    if not os.path.exists(HISTORY_FILE):
+        return jsonify([])
+    with open(HISTORY_FILE, 'r', encoding='utf-8') as f:
+        lines = f.readlines()
+    history = []
+    for line in lines:
+        parts = line.strip().split(',')
+        if len(parts) == 5:
+            history.append({
+                "shooter": parts[0],
+                "weapon": parts[1],
+                "distance": parts[2],
+                "hits": parts[3],
+                "timestamp": parts[4]
+            })
+    return jsonify(history)
+
+if __name__ == '__main__':
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port)
