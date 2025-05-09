@@ -2,123 +2,118 @@
 <html lang="he" dir="rtl">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>ShotMark AI</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
     body {
       font-family: Arial, sans-serif;
-      background: #f0f4f9;
+      background: #f4f7fc;
       margin: 0;
       padding: 20px;
       text-align: center;
     }
 
-    .container {
-      background: #fff;
-      border-radius: 16px;
-      padding: 20px;
-      max-width: 500px;
-      margin: auto;
-      box-shadow: 0 0 20px rgba(0,0,0,0.1);
-    }
-
     h1 {
       color: #003366;
+      margin-bottom: 10px;
     }
 
     input, button {
-      padding: 12px;
+      padding: 10px;
+      margin: 10px;
       font-size: 16px;
-      margin: 10px 5px;
+      border-radius: 6px;
     }
 
-    .result {
+    #result {
       margin-top: 20px;
-      font-size: 18px;
-    }
-
-    .ai-score {
-      font-size: 24px;
-      font-weight: bold;
-      color: green;
+      padding: 20px;
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      direction: rtl;
     }
 
     img {
       max-width: 100%;
-      border-radius: 8px;
       margin-top: 15px;
+      border: 2px solid #007bff;
+      border-radius: 8px;
+    }
+
+    .score {
+      font-size: 22px;
+      color: green;
     }
 
     canvas {
-      margin-top: 20px;
+      margin-top: 30px;
     }
   </style>
 </head>
 <body>
 
-<div class="container">
   <h1>ShotMark AI</h1>
-  <p>בחר תמונה או צלם מטרה</p>
-  <input type="file" accept="image/*" id="imageInput" capture="environment">
-  <br>
-  <button onclick="analyze()">שלח לניתוח</button>
+  <input type="file" id="imageInput" accept="image/*">
+  <button onclick="analyzeImage()">שלח לניתוח</button>
 
-  <div class="result" id="resultBox" style="display:none;">
-    <p class="ai-score" id="scoreText"></p>
-    <p id="messageText"></p>
-    <img id="resultImage" src="">
-    <canvas id="hitsChart" width="300" height="200"></canvas>
+  <div id="result" style="display:none;">
+    <p id="aiScore" class="score"></p>
+    <p id="hitCount"></p>
+    <p id="summary"></p>
+    <p id="details"></p>
+    <img id="resultImage" src="" hidden>
+    <canvas id="hitChart" width="300" height="150"></canvas>
   </div>
-</div>
 
-<script>
-async function analyze() {
-  const input = document.getElementById('imageInput');
-  const file = input.files[0];
-  if (!file) {
-    alert("בחר תמונה קודם");
-    return;
-  }
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    async function analyzeImage() {
+      const input = document.getElementById('imageInput');
+      const file = input.files[0];
+      if (!file) return alert("יש לבחור תמונה קודם");
 
-  const formData = new FormData();
-  formData.append("image", file);
+      const formData = new FormData();
+      formData.append("image", file);
 
-  const res = await fetch("/api/analyze", {
-    method: "POST",
-    body: formData
-  });
+      const res = await fetch("/api/analyze", {
+        method: "POST",
+        body: formData
+      });
 
-  const data = await res.json();
-  if (data.status === "success") {
-    document.getElementById('resultBox').style.display = 'block';
-    document.getElementById('scoreText').innerText = `AI SCORE: ${Math.min(data.hits * 10, 100)}/100`;
-    document.getElementById('messageText').innerText = data.message;
-    document.getElementById('resultImage').src = data.image_url;
-
-    // גרף פגיעות - אופציונלי בהמשך
-    const ctx = document.getElementById("hitsChart").getContext("2d");
-    if (window.hitsChartInstance) window.hitsChartInstance.destroy();
-    window.hitsChartInstance = new Chart(ctx, {
-      type: "bar",
-      data: {
-        labels: ["פגיעות"],
-        datasets: [{
-          label: "כמות",
-          data: [data.hits],
-          backgroundColor: "green"
-        }]
-      },
-      options: {
-        responsive: true,
-        plugins: { legend: { display: false } }
+      const data = await res.json();
+      if (data.status !== "success") {
+        alert(data.message || "שגיאה לא צפויה");
+        return;
       }
-    });
-  } else {
-    alert(data.message);
-  }
-}
-</script>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+      document.getElementById("result").style.display = "block";
+      document.getElementById("aiScore").textContent = `AI SCORE: ${data.score || 0}/100`;
+      document.getElementById("hitCount").textContent = `פגיעות חוקיות: ${data.hits}`;
+      document.getElementById("summary").textContent = data.message;
+      document.getElementById("details").textContent =
+        `יורה: ${data.shooter || "לא ידוע"} | נשק: ${data.weapon || "לא צויין"} | מרחק: ${data.distance || "לא ידוע"} | תאריך: ${data.timestamp || ""}`;
+
+      const img = document.getElementById("resultImage");
+      img.src = data.image_url;
+      img.hidden = false;
+
+      const ctx = document.getElementById("hitChart").getContext("2d");
+      new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: ['פגיעות'],
+          datasets: [{
+            label: 'מספר הפגיעות',
+            data: [data.hits],
+            backgroundColor: '#007bff'
+          }]
+        },
+        options: {
+          scales: { y: { beginAtZero: true } }
+        }
+      });
+    }
+  </script>
 </body>
 </html>
