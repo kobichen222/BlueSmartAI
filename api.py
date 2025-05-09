@@ -5,6 +5,8 @@ import numpy as np
 import cv2
 import os
 from urllib.parse import urljoin
+from reportlab.pdfgen import canvas
+from datetime import datetime
 
 app = Flask(__name__)
 CORS(app)
@@ -23,10 +25,7 @@ def interface():
 @app.route('/api/analyze', methods=['POST'])
 def analyze():
     if 'image' not in request.files:
-        return jsonify({
-            "status": "error",
-            "message": "❌ קובץ תמונה לא סופק"
-        }), 400
+        return jsonify({"status": "error", "message": "❌ קובץ תמונה לא סופק"}), 400
 
     try:
         file = request.files['image']
@@ -64,10 +63,25 @@ def analyze():
             "message": f"שגיאת ניתוח: {str(e)}"
         }), 500
 
+@app.route('/api/report')
+def report():
+    pdf_path = os.path.join(UPLOAD_FOLDER, 'report.pdf')
+    c = canvas.Canvas(pdf_path)
+    c.drawString(100, 800, "דו\"ח ניתוח פגיעות - ShotMark AI")
+    c.drawString(100, 780, f"תאריך: {datetime.now().strftime('%d.%m.%Y %H:%M')}")
+    c.drawString(100, 760, "סך פגיעות: 71 (לדוגמה)")
+    c.drawString(100, 740, "ריכוז: 86%")
+    c.drawString(100, 720, "סטיית פגיעות: 4.2 ס\"מ")
+    c.drawString(100, 700, "ציון כולל: 88/100")
+    c.drawImage("static/result.jpg", 100, 400, width=300, height=300)
+    c.drawString(100, 380, "חותמת: ShotMark AI")
+    c.save()
+    return send_from_directory(UPLOAD_FOLDER, 'report.pdf', as_attachment=True)
+
 @app.route('/static/<path:filename>')
 def serve_static(filename):
     return send_from_directory(UPLOAD_FOLDER, filename)
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))  # חשוב ל-Render
+    port = int(os.environ.get('PORT', 5000))
     app.run(host='0.0.0.0', port=port)
