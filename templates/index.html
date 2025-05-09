@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <title>ShotMark AI</title>
+</head>
+<body>
+  <h1>🔵 ShotMark AI</h1>
+  <input type="file" id="imageInput">
+  <button onclick="analyzeImage()">שלח</button>
+  <p id="result"></p>
+  <img id="resultImage" style="max-width:400px;" hidden>
+
+  <script>
+    async function analyzeImage() {
+      const file = document.getElementById('imageInput').files[0];
+      const formData = new FormData();
+      formData.append("image", file);
+      const res = await fetch('/api/analyze', {
+        method: 'POST',
+        body: formData
+      });
+      const data = await res.json();
+      document.getElementById('result').innerText = data.message;
+      if (data.image_url) {
+        const img = document.getElementById('resultImage');
+        img.src = data.image_url;
+        img.hidden = false;
+      }
+    }
+  </script>
+</body>
+</html>
