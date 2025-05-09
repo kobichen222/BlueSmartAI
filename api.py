@@ -1,10 +1,4 @@
-from flask import render_template
-
-@app.route('/app')
-def interface():
-    return render_template('index.html')
-
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, render_template
 from flask_cors import CORS
 from PIL import Image
 import numpy as np
@@ -22,6 +16,10 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 def home():
     return '🔵 שרת ShotMark AI פעיל - שלח תמונה לניתוח דרך /api/analyze'
 
+@app.route('/app')
+def interface():
+    return render_template('index.html')
+
 @app.route('/api/analyze', methods=['POST'])
 def analyze():
     if 'image' not in request.files:
@@ -35,7 +33,6 @@ def analyze():
         image = Image.open(file.stream).convert('RGB')
         image_np = np.array(image)
 
-        # עיבוד תמונה עם OpenCV
         gray = cv2.cvtColor(image_np, cv2.COLOR_RGB2GRAY)
         blurred = cv2.GaussianBlur(gray, (5, 5), 0)
         edges = cv2.Canny(blurred, 50, 150)
@@ -72,6 +69,5 @@ def serve_static(filename):
     return send_from_directory(UPLOAD_FOLDER, filename)
 
 if __name__ == '__main__':
-    import os
-    port = int(os.environ['PORT'])  # קריטי! ל-Render
+    port = int(os.environ['PORT'])
     app.run(host='0.0.0.0', port=port)
