@@ -1,112 +1,153 @@
-from flask import Flask, request, jsonify, send_from_directory, render_template
-from flask_cors import CORS
-from PIL import Image
-import numpy as np
-import cv2
-import os
-from urllib.parse import urljoin
-from datetime import datetime
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <title>ShotMark AI - ניתוח ירי</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #eef3f9;
+      color: #222;
+      text-align: center;
+      padding: 20px;
+    }
+    h1 { color: #0057b7; }
+    input, button {
+      font-size: 16px;
+      padding: 10px;
+      margin: 8px auto;
+      width: 90%;
+      max-width: 400px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      display: block;
+      box-sizing: border-box;
+    }
+    button {
+      background-color: #0057b7;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #003e8a;
+    }
+    #result { margin-top: 20px; font-size: 18px; }
+    img {
+      margin-top: 15px;
+      max-width: 100%;
+      border: 2px solid #0057b7;
+      border-radius: 10px;
+    }
+    .summary-table {
+      margin: 20px auto;
+      border-collapse: collapse;
+      width: 95%;
+      max-width: 500px;
+      background: #fff;
+    }
+    .summary-table td, .summary-table th {
+      border: 1px solid #ddd;
+      padding: 8px;
+    }
+    .summary-table th {
+      background-color: #f2f2f2;
+      font-weight: bold;
+    }
+    .actions {
+      margin-top: 20px;
+    }
+    .actions button { margin: 5px; width: 48%; }
+  </style>
+</head>
+<body>
 
-app = Flask(__name__)
-CORS(app)
+  <h1>🔵 ShotMark AI</h1>
+  <p>מדריך ירי חכם – ניתוח פגיעות בזמן אמת</p>
 
-UPLOAD_FOLDER = 'static'
-HISTORY_FILE = 'history.csv'
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+  <input type="text" id="shooter" placeholder="שם יורה (למשל: עזרא)">
+  <input type="text" id="weapon" placeholder="סוג נשק (למשל: Glock 19)">
+  <input type="text" id="distance" placeholder="מרחק מהמטרה (מטרים)">
+  <input type="file" id="imageInput" accept="image/*">
+  <button onclick="analyzeImage()">שלח לניתוח</button>
 
-@app.route('/')
-def home():
-    return '🔵 ShotMark AI פעיל - שלח תמונה לניתוח דרך /api/analyze'
+  <div id="result"></div>
+  <img id="resultImage" hidden>
 
-@app.route('/app')
-def interface():
-    return render_template('index.html')
+  <div class="actions" id="actions" style="display:none;">
+    <button onclick="window.print()">הדפס</button>
+    <button onclick="downloadImage()">שמור כתמונה</button>
+  </div>
 
-@app.route('/api/analyze', methods=['POST'])
-def analyze():
-    if 'image' not in request.files:
-        return jsonify({ "status": "error", "message": "❌ קובץ תמונה לא סופק" }), 400
+  <script>
+    async function analyzeImage() {
+      const file = document.getElementById("imageInput").files[0];
+      const shooter = document.getElementById("shooter").value;
+      const weapon = document.getElementById("weapon").value;
+      const distance = document.getElementById("distance").value;
 
-    try:
-        shooter = request.form.get('shooter', 'לא ידוע')
-        weapon = request.form.get('weapon', 'לא צויין')
-        distance = request.form.get('distance', 'לא ידוע')
+      if (!file) {
+        alert("נא לבחור תמונה לניתוח.");
+        return;
+      }
 
-        file = request.files['image']
-        image = Image.open(file.stream).convert('RGB')
-        image_np = np.array(image)
+      const formData = new FormData();
+      formData.append("image", file);
+      formData.append("shooter", shooter);
+      formData.append("weapon", weapon);
+      formData.append("distance", distance);
 
-        h, w = image_np.shape[:2]
-        cx, cy = w // 2, h // 2
-        radius = min(w, h) // 3
-        mask = np.zeros((h, w), dtype=np.uint8)
-        cv2.circle(mask, (cx, cy), radius, 255, -1)
+      const resultDiv = document.getElementById("result");
+      resultDiv.innerHTML = "⏳ ניתוח...";
+      document.getElementById("resultImage").hidden = true;
 
-        target_area = cv2.bitwise_and(image_np, image_np, mask=mask)
-        gray = cv2.cvtColor(target_area, cv2.COLOR_RGB2GRAY)
-        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-        edges = cv2.Canny(blurred, 30, 150)
+      try {
+        const response = await fetch("/api/analyze", {
+          method: "POST",
+          body: formData
+        });
+        const data = await response.json();
 
-        contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        output = image_np.copy()
-        hit_count = 0
+        if (data.status === "success") {
+          const summaryTable = `
+            <table class="summary-table">
+              <tr><th>שם יורה</th><td>${data.shooter}</td></tr>
+              <tr><th>נשק</th><td>${data.weapon}</td></tr>
+              <tr><th>מרחק</th><td>${data.distance} מטר</td></tr>
+              <tr><th>פגיעות</th><td>${data.hits}</td></tr>
+              <tr><th>תאריך</th><td>${data.timestamp}</td></tr>
+              <tr><th>הערכת AI</th><td>${generateAnalysis(data.hits)}</td></tr>
+            </table>
+          `;
+          resultDiv.innerHTML = summaryTable;
+          const img = document.getElementById("resultImage");
+          img.src = data.image_url;
+          img.hidden = false;
+          document.getElementById("actions").style.display = "block";
+        } else {
+          resultDiv.innerHTML = "שגיאה: " + data.message;
+        }
+      } catch (error) {
+        resultDiv.innerHTML = "שגיאה: " + error.message;
+      }
+    }
 
-        for c in contours:
-            area = cv2.contourArea(c)
-            if 50 < area < 300:
-                x, y, w2, h2 = cv2.boundingRect(c)
-                cx2, cy2 = x + w2 // 2, y + h2 // 2
-                distance_from_center = np.sqrt((cx - cx2) ** 2 + (cy - cy2) ** 2)
-                if distance_from_center < radius:
-                    if mask[cy2, cx2] == 255:
-                        cv2.circle(output, (cx2, cy2), 10, (255, 0, 0), 2)
-                        hit_count += 1
+    function generateAnalysis(hits) {
+      if (hits >= 15) return "ירי מדויק מאוד. שליטה מעולה.";
+      if (hits >= 10) return "פגיעות טובות. לשפר ריכוז.";
+      if (hits >= 5) return "ירי בינוני. יש לעבוד על יציבות.";
+      return "נדרשת עבודה בסיסית על אחיזה ותנוחה.";
+    }
 
-        result_filename = f'result_{datetime.now().strftime("%Y%m%d_%H%M%S")}.jpg'
-        result_path = os.path.join(UPLOAD_FOLDER, result_filename)
-        cv2.imwrite(result_path, cv2.cvtColor(output, cv2.COLOR_RGB2BGR))
+    function downloadImage() {
+      const img = document.getElementById("resultImage");
+      const link = document.createElement("a");
+      link.href = img.src;
+      link.download = "shotmark_result.jpg";
+      link.click();
+    }
+  </script>
 
-        now = datetime.now().strftime("%Y-%m-%d %H:%M")
-        with open(HISTORY_FILE, 'a', encoding='utf-8') as f:
-            f.write(f"{shooter},{weapon},{distance},{hit_count},{now}\n")
-
-        return jsonify({
-            "status": "success",
-            "message": f"✅ זוהו {hit_count} פגיעות בתוך עיגול המטרה",
-            "hits": hit_count,
-            "image_url": urljoin(request.url_root, 'static/' + result_filename),
-            "shooter": shooter,
-            "weapon": weapon,
-            "distance": distance,
-            "timestamp": now
-        })
-
-    except Exception as e:
-        return jsonify({ "status": "error", "message": f"שגיאת ניתוח: {str(e)}" }), 500
-
-@app.route('/static/<path:filename>')
-def serve_static(filename):
-    return send_from_directory(UPLOAD_FOLDER, filename)
-
-@app.route('/api/history')
-def get_history():
-    if not os.path.exists(HISTORY_FILE):
-        return jsonify([])
-    with open(HISTORY_FILE, 'r', encoding='utf-8') as f:
-        lines = f.readlines()
-    history = []
-    for line in lines:
-        parts = line.strip().split(',')
-        if len(parts) == 5:
-            history.append({
-                "shooter": parts[0],
-                "weapon": parts[1],
-                "distance": parts[2],
-                "hits": parts[3],
-                "timestamp": parts[4]
-            })
-    return jsonify(history)
-
-if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port)
+</body>
+</html>
