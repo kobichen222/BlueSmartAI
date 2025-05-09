@@ -4,3 +4,7 @@ gunicorn
 opencv-python
 pillow
 numpy
+flask
+flask-cors
+pillow
+reportlab
