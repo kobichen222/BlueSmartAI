@@ -50,6 +50,7 @@ def analyze():
         contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         output = image_np.copy()
         hit_count = 0
+        miss_count = 0
 
         for c in contours:
             area = cv2.contourArea(c)
@@ -57,9 +58,12 @@ def analyze():
                 x, y, w2, h2 = cv2.boundingRect(c)
                 cx2, cy2 = x + w2 // 2, y + h2 // 2
                 distance_from_center = np.sqrt((cx - cx2)**2 + (cy - cy2)**2)
-                if distance_from_center < radius and mask[cy2, cx2] == 255:
-                    cv2.circle(output, (cx2, cy2), 10, (255, 0, 0), 2)
+                if distance_from_center < radius:
+                    cv2.circle(output, (cx2, cy2), 10, (255, 0, 0), 2)  # Blue for hit
                     hit_count += 1
+                else:
+                    cv2.circle(output, (cx2, cy2), 10, (0, 0, 255), 2)  # Red for miss
+                    miss_count += 1
 
         result_filename = f'result_{datetime.now().strftime("%Y%m%d_%H%M%S")}.jpg'
         result_path = os.path.join(UPLOAD_FOLDER, result_filename)
@@ -67,12 +71,13 @@ def analyze():
 
         now = datetime.now().strftime("%Y-%m-%d %H:%M")
         with open(HISTORY_FILE, 'a', encoding='utf-8') as f:
-            f.write(f"{shooter},{weapon},{distance},{hit_count},{now}\n")
+            f.write(f"{shooter},{weapon},{distance},{hit_count},{miss_count},{now}\n")
 
         return jsonify({
             "status": "success",
-            "message": f"✅ זוהו {hit_count} פגיעות בתוך עיגול המטרה",
+            "message": f"✅ זוהו {hit_count} פגיעות בתוך עיגול המטרה ו-{miss_count} פגיעות מחוץ לעיגול המטרה",
             "hits": hit_count,
+            "misses": miss_count,
             "image_url": urljoin(request.url_root, 'static/' + result_filename),
             "shooter": shooter,
             "weapon": weapon,
@@ -86,3 +91,6 @@ def analyze():
 @app.route('/static/<path:filename>')
 def serve_static(filename):
     return send_from_directory(UPLOAD_FOLDER, filename)
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=10000)
