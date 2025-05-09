@@ -1,4 +1,10 @@
 from flask import Flask, request, jsonify, send_from_directory
+from flask_cors import CORS  # חדש
+
+app = Flask(__name__)
+CORS(app)  # חדש
+
+from flask import Flask, request, jsonify, send_from_directory
 from PIL import Image
 import numpy as np
 import cv2
