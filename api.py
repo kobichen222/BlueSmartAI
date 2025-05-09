@@ -1,82 +1,119 @@
-from flask import Flask, request, jsonify, send_from_directory, render_template
-from flask_cors import CORS
-import numpy as np
-import cv2
-import os
-from PIL import Image
-from urllib.parse import urljoin
-from datetime import datetime
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <title>ShotMark AI</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f7fc;
+      margin: 0;
+      padding: 20px;
+      text-align: center;
+    }
 
-app = Flask(__name__)
-CORS(app)
+    h1 {
+      color: #003366;
+      margin-bottom: 10px;
+    }
 
-UPLOAD_FOLDER = 'static'
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+    input, button {
+      padding: 10px;
+      margin: 10px;
+      font-size: 16px;
+      border-radius: 6px;
+    }
 
-@app.route('/')
-def home():
-    return '🔵 ShotMark AI פעיל - העלה תמונה דרך /app או שלח לניתוח דרך /api/analyze'
+    #result {
+      margin-top: 20px;
+      padding: 20px;
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+      direction: rtl;
+    }
 
-@app.route('/app')
-def interface():
-    return render_template('index.html')
+    img {
+      max-width: 100%;
+      margin-top: 15px;
+      border: 2px solid #007bff;
+      border-radius: 8px;
+    }
 
-@app.route('/api/analyze', methods=['POST'])
-def analyze():
-    if 'image' not in request.files:
-        return jsonify({ "status": "error", "message": "לא נשלחה תמונה" }), 400
+    .score {
+      font-size: 22px;
+      color: green;
+    }
 
-    try:
-        file = request.files['image']
-        image = Image.open(file.stream).convert('RGB')
-        image_np = np.array(image)
+    canvas {
+      margin-top: 30px;
+    }
+  </style>
+</head>
+<body>
 
-        gray = cv2.cvtColor(image_np, cv2.COLOR_RGB2GRAY)
-        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-        _, thresh = cv2.threshold(blurred, 200, 255, cv2.THRESH_BINARY)
+  <h1>ShotMark AI</h1>
+  <input type="file" id="imageInput" accept="image/*">
+  <button onclick="analyzeImage()">שלח לניתוח</button>
 
-        # זיהוי קונטור של המטרה
-        contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        mask = np.zeros_like(gray)
-        for cnt in contours:
-            area = cv2.contourArea(cnt)
-            if 30000 < area < 3000000:
-                cv2.drawContours(mask, [cnt], -1, 255, -1)
+  <div id="result" style="display:none;">
+    <p id="aiScore" class="score"></p>
+    <p id="hitCount"></p>
+    <p id="summary"></p>
+    <p id="details"></p>
+    <img id="resultImage" src="" hidden>
+    <canvas id="hitChart" width="300" height="150"></canvas>
+  </div>
 
-        # מציאת חורים (פגיעות ירי)
-        edges = cv2.Canny(gray, 30, 150)
-        holes, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    async function analyzeImage() {
+      const input = document.getElementById('imageInput');
+      const file = input.files[0];
+      if (!file) return alert("יש לבחור תמונה קודם");
 
-        output = image_np.copy()
-        hit_count = 0
+      const formData = new FormData();
+      formData.append("image", file);
 
-        for c in holes:
-            area = cv2.contourArea(c)
-            if 40 < area < 200:
-                x, y, w, h = cv2.boundingRect(c)
-                cx, cy = x + w // 2, y + h // 2
-                if mask[cy, cx] > 0:
-                    cv2.rectangle(output, (x, y), (x + w, y + h), (0, 255, 0), 1)
-                    hit_count += 1
+      const res = await fetch("/api/analyze", {
+        method: "POST",
+        body: formData
+      });
 
-        # שמירת התוצאה
-        result_filename = f'result_{datetime.now().strftime("%Y%m%d_%H%M%S")}.jpg'
-        result_path = os.path.join(UPLOAD_FOLDER, result_filename)
-        cv2.imwrite(result_path, cv2.cvtColor(output, cv2.COLOR_RGB2BGR))
+      const data = await res.json();
+      if (data.status !== "success") {
+        alert(data.message || "שגיאה לא צפויה");
+        return;
+      }
 
-        return jsonify({
-            "status": "success",
-            "hits": hit_count,
-            "message": f"זוהו {hit_count} פגיעות חוקיות בתוך המטרה",
-            "image_url": urljoin(request.url_root, 'static/' + result_filename)
-        })
+      document.getElementById("result").style.display = "block";
+      document.getElementById("aiScore").textContent = `AI SCORE: ${data.score || 0}/100`;
+      document.getElementById("hitCount").textContent = `פגיעות חוקיות: ${data.hits}`;
+      document.getElementById("summary").textContent = data.message;
+      document.getElementById("details").textContent =
+        `יורה: ${data.shooter || "לא ידוע"} | נשק: ${data.weapon || "לא צויין"} | מרחק: ${data.distance || "לא ידוע"} | תאריך: ${data.timestamp || ""}`;
 
-    except Exception as e:
-        return jsonify({ "status": "error", "message": f"שגיאה פנימית: {str(e)}" }), 500
+      const img = document.getElementById("resultImage");
+      img.src = data.image_url;
+      img.hidden = false;
 
-@app.route('/static/<path:filename>')
-def serve_static(filename):
-    return send_from_directory(UPLOAD_FOLDER, filename)
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=10000)
+      const ctx = document.getElementById("hitChart").getContext("2d");
+      new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: ['פגיעות'],
+          datasets: [{
+            label: 'מספר הפגיעות',
+            data: [data.hits],
+            backgroundColor: '#007bff'
+          }]
+        },
+        options: {
+          scales: { y: { beginAtZero: true } }
+        }
+      });
+    }
+  </script>
+</body>
+</html>
