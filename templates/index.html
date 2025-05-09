@@ -8,19 +8,19 @@
   <style>
     body {
       font-family: Arial, sans-serif;
-      background: #f1f5fa;
+      background: #f5f9ff;
       color: #222;
       text-align: center;
       padding: 20px;
     }
-    h1 { color: #0057b7; }
+    h1 { color: #0057b7; font-size: 28px; }
     input, button {
-      font-size: 16px;
       padding: 10px;
       margin: 8px auto;
-      width: 90%;
+      font-size: 16px;
+      width: 95%;
       max-width: 400px;
-      border-radius: 6px;
+      border-radius: 8px;
       border: 1px solid #ccc;
       display: block;
       box-sizing: border-box;
@@ -32,47 +32,43 @@
       cursor: pointer;
     }
     button:hover {
-      background-color: #003e8a;
+      background-color: #003f8a;
     }
     img {
       margin-top: 15px;
       max-width: 100%;
-      border: 2px solid #0057b7;
       border-radius: 10px;
-    }
-    .summary-table {
-      margin: 20px auto;
-      border-collapse: collapse;
-      width: 95%;
-      max-width: 500px;
-      background: #fff;
-    }
-    .summary-table td, .summary-table th {
-      border: 1px solid #ddd;
-      padding: 8px;
-    }
-    .summary-table th {
-      background-color: #f2f2f2;
-      font-weight: bold;
+      border: 2px solid #0057b7;
     }
     .chart-container {
-      margin: 20px auto;
+      margin-top: 20px;
       max-width: 400px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .summary {
+      background: white;
+      border-radius: 10px;
+      padding: 15px;
+      margin-top: 20px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.05);
+      text-align: right;
+      direction: rtl;
     }
   </style>
 </head>
 <body>
 
   <h1>🔵 ShotMark AI</h1>
-  <p>מדריך ירי חכם – ניתוח פגיעות בזמן אמת</p>
+  <p>מערכת ניתוח חורים בזמן אמת</p>
 
-  <input type="text" id="shooter" placeholder="שם יורה (למשל: עזרא)">
-  <input type="text" id="weapon" placeholder="סוג נשק (למשל: Glock 19)">
-  <input type="text" id="distance" placeholder="מרחק מהמטרה (מטרים)">
+  <input type="text" id="shooter" placeholder="שם יורה">
+  <input type="text" id="weapon" placeholder="סוג נשק">
+  <input type="text" id="distance" placeholder="מרחק מהמטרה (מ')">
   <input type="file" id="imageInput" accept="image/*">
   <button onclick="analyzeImage()">שלח לניתוח</button>
 
-  <div id="result"></div>
+  <div id="result" class="summary"></div>
   <img id="resultImage" hidden>
 
   <div class="chart-container">
@@ -110,14 +106,13 @@
 
         if (data.status === "success") {
           resultDiv.innerHTML = `
-            <table class="summary-table">
-              <tr><th>שם יורה</th><td>${data.shooter}</td></tr>
-              <tr><th>נשק</th><td>${data.weapon}</td></tr>
-              <tr><th>מרחק</th><td>${data.distance} מטר</td></tr>
-              <tr><th>פגיעות</th><td>${data.hits}</td></tr>
-              <tr><th>תאריך</th><td>${data.timestamp}</td></tr>
-              <tr><th>AI</th><td>${analyzeComment(data.hits)}</td></tr>
-            </table>`;
+            <b>יורה:</b> ${data.shooter}<br>
+            <b>נשק:</b> ${data.weapon}<br>
+            <b>מרחק:</b> ${data.distance}<br>
+            <b>פגיעות תקפות:</b> ${data.hits}<br>
+            <b>תאריך:</b> ${data.timestamp}<br>
+            <b>AI:</b> ${getFeedback(data.hits)}
+          `;
 
           const img = document.getElementById("resultImage");
           img.src = data.image_url;
@@ -132,36 +127,34 @@
       }
     }
 
-    function analyzeComment(hits) {
-      if (hits >= 15) return "מצוין – שליטה מרשימה.";
-      if (hits >= 10) return "טוב מאוד – שיפור קטן.";
-      if (hits >= 5) return "בינוני – שים לב ליציבות.";
-      return "נדרש תרגול בסיסי.";
+    function getFeedback(hits) {
+      if (hits >= 15) return "ירי מדויק ומרוכז – כל הכבוד!";
+      if (hits >= 10) return "ביצוע טוב – שפר מיקוד.";
+      if (hits >= 5) return "בינוני – מומלץ תרגול נוסף.";
+      return "נדרש שיפור בסיסי.";
     }
 
     function plotHits(coords) {
       const ctx = document.getElementById('hitsChart').getContext('2d');
-      const xData = coords.map(p => p.x);
-      const yData = coords.map(p => p.y);
+      const data = coords.map(p => ({ x: p.x, y: p.y }));
 
       new Chart(ctx, {
         type: 'scatter',
         data: {
           datasets: [{
-            label: 'פגיעות',
-            data: coords,
-            backgroundColor: 'red',
+            label: 'פגיעות במטרה',
+            data: data,
+            backgroundColor: 'green'
           }]
         },
         options: {
-          responsive: true,
+          scales: {
+            x: { title: { display: true, text: 'X' }, min: 0 },
+            y: { title: { display: true, text: 'Y' }, min: 0 }
+          },
           plugins: {
             legend: { display: false },
-            title: { display: true, text: 'פיזור חורי ירי' }
-          },
-          scales: {
-            x: { title: { display: true, text: 'X' }, min: 0, max: 800 },
-            y: { title: { display: true, text: 'Y' }, min: 0, max: 800 }
+            title: { display: true, text: 'פיזור פגיעות' }
           }
         }
       });
