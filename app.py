@@ -1,10 +1,5 @@
 from flask import Flask, request, jsonify, send_from_directory
-from flask_cors import CORS  # חדש
-
-app = Flask(__name__)
-CORS(app)  # חדש
-
-from flask import Flask, request, jsonify, send_from_directory
+from flask_cors import CORS
 from PIL import Image
 import numpy as np
 import cv2
@@ -12,6 +7,8 @@ import os
 from urllib.parse import urljoin
 
 app = Flask(__name__)
+CORS(app)
+
 UPLOAD_FOLDER = 'static'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
