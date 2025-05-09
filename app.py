@@ -6,18 +6,13 @@ import cv2
 import os
 from urllib.parse import urljoin
 from datetime import datetime
-from reportlab.pdfgen import canvas
-from reportlab.lib.pagesizes import A4
-from reportlab.lib.utils import ImageReader
 
 app = Flask(__name__)
 CORS(app)
 
 UPLOAD_FOLDER = 'static'
-REPORT_FOLDER = 'static/reports'
 HISTORY_FILE = 'history.csv'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-os.makedirs(REPORT_FOLDER, exist_ok=True)
 
 @app.route('/')
 def home():
@@ -63,32 +58,15 @@ def analyze():
                 cx2, cy2 = x + w2 // 2, y + h2 // 2
                 distance_from_center = np.sqrt((cx - cx2) ** 2 + (cy - cy2) ** 2)
                 if distance_from_center < radius:
-                    cv2.circle(output, (cx2, cy2), 10, (255, 0, 0), 2)
-                    hit_count += 1
+                    if mask[cy2, cx2] == 255:
+                        cv2.circle(output, (cx2, cy2), 10, (255, 0, 0), 2)
+                        hit_count += 1
 
-        now = datetime.now().strftime("%Y-%m-%d %H:%M")
-        timestamp_id = datetime.now().strftime("%Y%m%d_%H%M%S")
-        result_filename = f'result_{timestamp_id}.jpg'
+        result_filename = f'result_{datetime.now().strftime("%Y%m%d_%H%M%S")}.jpg'
         result_path = os.path.join(UPLOAD_FOLDER, result_filename)
         cv2.imwrite(result_path, cv2.cvtColor(output, cv2.COLOR_RGB2BGR))
 
-        # PDF Report
-        pdf_filename = f'report_{timestamp_id}.pdf'
-        pdf_path = os.path.join(REPORT_FOLDER, pdf_filename)
-        c = canvas.Canvas(pdf_path, pagesize=A4)
-        c.setFont("Helvetica-Bold", 18)
-        c.drawString(50, 800, "דו\"ח פגיעות - ShotMark AI")
-        c.setFont("Helvetica", 12)
-        c.drawString(50, 770, f"יורה: {shooter}")
-        c.drawString(50, 755, f"נשק: {weapon}")
-        c.drawString(50, 740, f"מרחק מהמטרה: {distance} מטרים")
-        c.drawString(50, 725, f"מספר פגיעות מזוהות: {hit_count}")
-        c.drawString(50, 710, f"תאריך: {now}")
-        c.drawImage(ImageReader(result_path), 50, 400, width=400, preserveAspectRatio=True, mask='auto')
-        c.setFont("Helvetica-Oblique", 10)
-        c.drawString(50, 100, "דו\"ח זה הופק אוטומטית על ידי מערכת ShotMark AI | www.bluetarget.tech")
-        c.save()
-
+        now = datetime.now().strftime("%Y-%m-%d %H:%M")
         with open(HISTORY_FILE, 'a', encoding='utf-8') as f:
             f.write(f"{shooter},{weapon},{distance},{hit_count},{now}\n")
 
@@ -97,7 +75,6 @@ def analyze():
             "message": f"✅ זוהו {hit_count} פגיעות בתוך עיגול המטרה",
             "hits": hit_count,
             "image_url": urljoin(request.url_root, 'static/' + result_filename),
-            "pdf_url": urljoin(request.url_root, 'static/reports/' + pdf_filename),
             "shooter": shooter,
             "weapon": weapon,
             "distance": distance,
