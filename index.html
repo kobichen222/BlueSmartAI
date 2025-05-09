@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <title>בדיקת פגיעות - ShotMark AI</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f7fc;
+      text-align: center;
+      padding: 40px;
+    }
+    input, button {
+      padding: 10px;
+      margin: 10px;
+      font-size: 16px;
+    }
+    img {
+      max-width: 400px;
+      margin-top: 20px;
+      border: 2px solid #007bff;
+      border-radius: 8px;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>🔵 ShotMark AI</h1>
+  <p>שלח תמונה לניתוח וקבל את מספר הפגיעות</p>
+
+  <input type="file" id="imageInput" accept="image/*">
+  <button onclick="analyzeImage()">שלח לניתוח</button>
+
+  <div id="result"></div>
+  <img id="resultImage" src="" alt="" hidden>
+
+  <script>
+    async function analyzeImage() {
+      const input = document.getElementById('imageInput');
+      const file = input.files[0];
+      if (!file) {
+        alert("בחר תמונה קודם");
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("image", file);
+
+      const resultDiv = document.getElementById('result');
+      resultDiv.innerHTML = "⏳ מנתח...";
+
+      try {
+        const response = await fetch('/api/analyze', {
+          method: 'POST',
+          body: formData
+        });
+
+        const data = await response.json();
+        if (data.status === "success") {
+          resultDiv.innerHTML = `<b>${data.message}</b><br><a href="${data.image_url}" target="_blank">הצג תמונה</a>`;
+          const img = document.getElementById('resultImage');
+          img.src = data.image_url;
+          img.hidden = false;
+        } else {
+          resultDiv.innerHTML = "שגיאה: " + data.message;
+        }
+      } catch (err) {
+        resultDiv.innerHTML = "שגיאה: " + err.message;
+      }
+    }
+  </script>
+
+</body>
+</html>
