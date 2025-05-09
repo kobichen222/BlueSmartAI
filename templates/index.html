@@ -3,31 +3,32 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ShotMark AI - ממשק מתקדם</title>
+  <title>ShotMark AI</title>
   <style>
     body {
       font-family: Arial, sans-serif;
-      background: #f0f4f8;
-      color: #333;
+      background: #f4f7fc;
       text-align: center;
-      padding: 40px;
+      padding: 40px 20px;
+      margin: 0;
     }
-    h1 { color: #0057b7; }
-    .container {
-      background: white;
-      max-width: 900px;
-      margin: auto;
-      padding: 30px;
-      border-radius: 12px;
-      box-shadow: 0 0 15px rgba(0,0,0,0.1);
+    h1 {
+      color: #0057b7;
+      font-size: 28px;
+      margin-bottom: 10px;
     }
-    input, select, button {
-      padding: 10px;
-      margin: 10px 0;
+    p {
       font-size: 16px;
-      border-radius: 5px;
+      margin-bottom: 20px;
+    }
+    input, button {
+      padding: 12px;
+      font-size: 16px;
+      border-radius: 8px;
+      margin: 10px auto;
       width: 90%;
       max-width: 400px;
+      box-sizing: border-box;
     }
     button {
       background-color: #0057b7;
@@ -35,160 +36,62 @@
       border: none;
     }
     button:hover {
-      background-color: #0040a0;
+      background-color: #004aa3;
     }
-    table {
-      width: 90%;
-      margin: 20px auto;
-      border-collapse: collapse;
-    }
-    th, td {
-      padding: 10px;
-      border: 1px solid #ccc;
-    }
-    th { background: #e0e7ff; }
     img {
-      max-width: 100%;
       margin-top: 20px;
+      width: 90%;
+      max-width: 400px;
       border: 2px solid #0057b7;
       border-radius: 10px;
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>🔵 ShotMark AI – ניתוח פגיעות מתקדם</h1>
 
-    <h3>פרטי היורה</h3>
-    <select id="shooterName">
-      <option>עזרא</option>
-      <option>יוחאי</option>
-      <option>ניב</option>
-    </select>
-    <input type="text" id="weaponType" placeholder="סוג כלי נשק">
-    <input type="number" id="distance" placeholder="מרחק בירי (מטרים)">
+  <h1>🔵 ShotMark AI</h1>
+  <p>בחר תמונה מהמכשיר לניתוח פגיעות</p>
 
-    <h3>בחר תמונה לניתוח</h3>
-    <input type="file" id="imageInput" accept="image/*"><br>
-    <button onclick="analyzeImage()">נתח פגיעות</button>
+  <input type="file" id="imageInput" accept="image/*">
+  <button onclick="analyzeImage()">שלח לניתוח</button>
 
-    <p id="result">אין תוצאה עדיין</p>
-
-    <div id="analysis" style="display:none;">
-      <table>
-        <tr><th>פרמטר</th><th>תוצאה</th></tr>
-        <tr><td>שם היורה</td><td id="shooterOut">-</td></tr>
-        <tr><td>כלי נשק</td><td id="weaponOut">-</td></tr>
-        <tr><td>מרחק</td><td id="distanceOut">-</td></tr>
-        <tr><td>סה"כ פגיעות</td><td id="totalHits">-</td></tr>
-        <tr><td>ציון כולל</td><td id="score">-</td></tr>
-      </table>
-      <button onclick="generatePDF()">הפק דו\"ח PDF</button>
-      <button onclick="shareResult()">שתף תוצאה</button>
-      <button onclick="saveHistory()">שמור היסטוריה</button>
-      <button onclick="exportHistory()">ייצוא ל־CSV</button>
-      <a id="pdfLink" href="#" target="_blank" style="display:none;">הצג דו\"ח PDF</a>
-    </div>
-
-    <img id="resultImage" hidden>
-    
-    <h3>היסטוריית ירי</h3>
-    <table id="historyTable"><tr><th>יורה</th><th>כלי נשק</th><th>מרחק</th><th>פגיעות</th><th>תאריך</th></tr></table>
-  </div>
+  <p id="result"></p>
+  <img id="resultImage" src="" alt="" hidden>
 
   <script>
     async function analyzeImage() {
       const file = document.getElementById('imageInput').files[0];
-      const shooter = document.getElementById("shooterName").value;
-      const weapon = document.getElementById("weaponType").value;
-      const distance = document.getElementById("distance").value;
-
       if (!file) {
-        alert("יש לבחור תמונה");
+        alert("יש לבחור תמונה לניתוח");
         return;
       }
 
       const formData = new FormData();
       formData.append("image", file);
 
-      const res = await fetch('/api/analyze', { method: 'POST', body: formData });
-      const data = await res.json();
+      document.getElementById("result").innerText = "⏳ מנתח...";
+      document.getElementById("resultImage").hidden = true;
 
-      document.getElementById("result").innerText = data.message;
-      document.getElementById("resultImage").src = data.image_url;
-      document.getElementById("resultImage").hidden = false;
-
-      document.getElementById("shooterOut").innerText = shooter;
-      document.getElementById("weaponOut").innerText = weapon;
-      document.getElementById("distanceOut").innerText = distance + " מ׳";
-      document.getElementById("totalHits").innerText = data.hits;
-      document.getElementById("score").innerText = Math.min(100, data.hits) + "/100";
-
-      if (data.report_url) {
-        const link = document.getElementById("pdfLink");
-        link.href = data.report_url;
-        link.style.display = "inline-block";
-      }
-
-      document.getElementById("analysis").style.display = "block";
-    }
-
-    function generatePDF() {
-      const link = document.getElementById("pdfLink");
-      if (link.href) window.open(link.href, '_blank');
-    }
-
-    function shareResult() {
-      const url = window.location.href;
-      if (navigator.share) {
-        navigator.share({ title: "ShotMark AI", text: "תוצאה מניתוח ירי", url });
-      } else {
-        prompt("העתק קישור:", url);
-      }
-    }
-
-    function saveHistory() {
-      const shooter = document.getElementById("shooterName").value;
-      const weapon = document.getElementById("weaponType").value;
-      const distance = document.getElementById("distance").value;
-      const hits = document.getElementById("totalHits").innerText;
-      const date = new Date().toLocaleString('he-IL');
-      const row = [shooter, weapon, distance + " מ׳", hits, date];
-
-      let history = JSON.parse(localStorage.getItem("shotHistory") || "[]");
-      history.push(row);
-      localStorage.setItem("shotHistory", JSON.stringify(history));
-      loadHistory();
-    }
-
-    function loadHistory() {
-      const table = document.getElementById("historyTable");
-      const rows = JSON.parse(localStorage.getItem("shotHistory") || "[]");
-      table.innerHTML = "<tr><th>יורה</th><th>כלי נשק</th><th>מרחק</th><th>פגיעות</th><th>תאריך</th></tr>";
-      rows.forEach(r => {
-        const tr = document.createElement("tr");
-        r.forEach(cell => {
-          const td = document.createElement("td");
-          td.innerText = cell;
-          tr.appendChild(td);
+      try {
+        const response = await fetch("/api/analyze", {
+          method: "POST",
+          body: formData
         });
-        table.appendChild(tr);
-      });
-    }
 
-    function exportHistory() {
-      const rows = JSON.parse(localStorage.getItem("shotHistory") || "[]");
-      let csv = "יורה,כלי נשק,מרחק,פגיעות,תאריך\\n";
-      rows.forEach(r => csv += r.join(",") + "\\n");
-      const blob = new Blob([csv], { type: "text/csv" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "shot_history.csv";
-      a.click();
+        const data = await response.json();
+        if (data.status === "success") {
+          document.getElementById("result").innerText = data.message;
+          const img = document.getElementById("resultImage");
+          img.src = data.image_url;
+          img.hidden = false;
+        } else {
+          document.getElementById("result").innerText = "שגיאה: " + data.message;
+        }
+      } catch (error) {
+        document.getElementById("result").innerText = "שגיאה בהעלאה: " + error.message;
+      }
     }
-
-    window.onload = loadHistory;
   </script>
+
 </body>
 </html>
